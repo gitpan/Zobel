@@ -2,10 +2,12 @@ package LiveGeez::File;
 
 require 5.000;
 
-use Convert::Ethiopic::Cstocs;
 use LiveGeez::Local;
 use LiveGeez::HTML;
-use LWP::Simple;
+require LiveGeez::CacheAsSERA;
+if ( $processURLs ) {
+	#use LWP::Simple;
+}
 #
 # Uncomment these next 3 if using getURL command
 #
@@ -37,7 +39,7 @@ my $self = {};
 
 
 	CgiDie ( "Unrecognized file type, does not appear to be HTML<br>$request->{file}" )
-		if ( $request->{file} !~ /htm(l)?$/ && $request->{file} !~ /\/$/ );
+		if ( $request->{file} !~ /htm(l)?$/i && $request->{file} !~ /\/$/ );
 
 	$self->{request}     =   $request;
 
@@ -58,7 +60,7 @@ my $self = {};
 
     $self->OpenFile;
 
-    return ( $blessing );
+    $blessing;
 
 }
 
@@ -88,6 +90,15 @@ local ( $sourceFile, $fileStream, $fileIsURL );
 
 
 	#
+	# if we do not permit remote processing then bail at this point.
+	# ...or we could redirect to Zobel server that does allow remote
+	# processing...
+	#
+	CgiDie ( "Sorry!  Zobel at $scriptBase is for local use only!\n" )
+		if ( $fileIsURL && !$processURLs );
+
+
+	#
 	# check if cached.
 	#
 	$sourceFile = ( $fileIsURL ) ? $self->CheckCacheURL : $self->CheckCacheFile;
@@ -109,7 +120,7 @@ local ( $sourceFile, $fileStream, $fileIsURL );
 
 	#
 	# cute one-liner but turns out to be inefficient because the string has
-	# to grow, so we use a package-local presized array.
+	# to grow with each new line read, so we use a package-local presized array.
 	#
 	# $self->{htmlData} = join ( "", <FILE> );
 
@@ -118,7 +129,6 @@ local ( $sourceFile, $fileStream, $fileIsURL );
 
     close ( FILE );
 
-	return;
 }
 
 
@@ -147,8 +157,6 @@ my $self = shift;
 	#
 	$self->DisplayFileAndCache;
 
-
-	return;
 }
 
 
@@ -167,7 +175,8 @@ my $self = shift;
 sub DisplayFileAndCache
 {
 my $self = shift;
-local ($cacheFile) = $self->{cacheFileIn};
+local ( $cacheFile ) = $self->{cacheFileIn};
+
 
 	print PrintHeader if ( !$self->{request}->{HeaderPrinted} );
     open (CACHEFILE, "| tee $cacheFile") 
@@ -177,6 +186,7 @@ local ($cacheFile) = $self->{cacheFileIn};
 
 	system ( 'gzip', $cacheFile ) if ( $cacheFile !~ /\/Frames/ );
 
+	1;
 }
 
 
@@ -246,9 +256,8 @@ local ( $dir, $file, $cacheDir, $cacheFileIn, $cacheFileOut, $sourceFile, $ext )
 
 
 	($file,$dir) = split ( m#/#, reverse($diskFile), 2 );
-	$dir  = reverse($dir);
+	$dir = reverse($dir);
 
-	#------------------------------------BEGIN TEST----------
 	if ( $file ) {
 		$file = reverse($file);
 	} else {
@@ -265,11 +274,10 @@ local ( $dir, $file, $cacheDir, $cacheFileIn, $cacheFileOut, $sourceFile, $ext )
 	}
 
 	$self->{baseDomain} = "$dir" if ( $dir );
-	#------------------------------------END TEST------------
 
-	$file =~ s/\.(htm(l)?)$//o;
+	$file =~ s/\.(htm(l)?)$//oi;
 	$ext  =  $1;
-	$file =~ s/\.sera$//;
+	$file =~ s/\.sera$//i;
 
 	$cacheDir     = "$FileCacheDir/$dir";
 	$cacheFileIn  = "$cacheDir/$file.$self->{fileSysOut}.$ext";
@@ -285,20 +293,44 @@ local ( $dir, $file, $cacheDir, $cacheFileIn, $cacheFileOut, $sourceFile, $ext )
     #
     #  Return Cached File name if found, we don't do date tests for now...
     #
+	$sourceFile = "$webRoot/$diskFile";
+    if ( (-e "$sourceFile.gz") ) {
+    	$self->{isZipped} = "true";
+		$sourceFile .= ".gz";
+	}
 	if ( (-e $cacheFileOut) ) {
-		$self->{isCached}     = "true";
-		$self->{isZipped}     = "true" if ( $cacheFileOut ne $cacheFileIn );
-		$self->{cacheFileOut} = $sourceFile = $cacheFileOut;
+		#
+		#  Check Date Here
+		#
+		if ( $checkFileDates &&
+			  ( (stat ( $cacheFileOut ))[9] < (stat ( $sourceFile ))[9] ) )
+	 	{
+			#
+			#  if old delete and get New
+			#
+			unlink <$cacheDir/$file*.gz>;
+
+			#
+			#  is sourceFile in SERA?
+			#
+			$sourceFile = CacheAsSERA::HTML ( $self, $sourceFile )
+				unless ( $self->{request}->{sysIn}->{sysName} eq "sera" );
+		} else {
+			$sourceFile = $cacheFileOut;
+			$self->{isCached} = "true";
+			$self->{isZipped} = "true" if ( $cacheFileOut ne $cacheFileIn );
+		}
+		$self->{cacheFileOut} = $cacheFileOut;
 	} else {
 		MakeCacheDir ($cacheDir);
-		$sourceFile = "$webRoot/$diskFile";
-	    if ( (-e "$sourceFile.gz") ) {
-	    	$self->{isZipped} = "true";
-			$sourceFile .= ".gz";
-		}
+		#
+		#  is sourceFile in SERA?
+		#
+		$sourceFile = LiveGeez::CacheAsSERA::HTML ( $self, $sourceFile )
+			unless ( $self->{request}->{sysIn}->{sysName} eq "sera" );
 	}
 
-	return ( $self->{sourceFile} = $sourceFile );
+	$self->{sourceFile} = $sourceFile;
 
 }
 
@@ -318,12 +350,12 @@ local ( $URL ) = $self->{request}->{file};
 local ( $proto, $url, $dir, $file, $cacheDir, $cacheFileIn, $cacheFileOut, $ext, $baseURL );
 
 
-	($proto,$url) = split ( m#//#, $URL, 3 );
+	($proto,$url) = split ( m#//#, $URL, 2 );
 	($url,  $dir) = split ( m#/#, $url, 2 );
 	($file, $dir) = split ( m#/#, reverse($dir), 2 );
 
 	chop ($proto);
-	$dir  = reverse($dir);
+	$dir = reverse($dir);
 	$baseURL = "$proto://$url/$dir/";
 	$self->{baseDomain} = "$proto://$url/$1" if ( $dir =~ /^(~[^\/]+)/ );
 
@@ -338,9 +370,9 @@ local ( $proto, $url, $dir, $file, $cacheDir, $cacheFileIn, $cacheFileOut, $ext,
 	$cacheDir   = "$URLCacheDir/$url/$dir";
 	$sourceFile = "$cacheDir/$file";
 
-	$file       =~ s/\.(htm(l)?)$//o;
+	$file       =~ s/\.(htm(l)?)$//oi;
 	$ext        =  $1;
-	$file       =~ s/\.sera$//;
+	$file       =~ s/\.sera$//i;
 
 	$cacheFileIn         = "$cacheDir/$file.$self->{fileSysOut}.$ext";
 	$cacheFileOut        = "$cacheDir/$file.$self->{fileSysOut}.$ext.gz";
@@ -349,7 +381,7 @@ local ( $proto, $url, $dir, $file, $cacheDir, $cacheFileIn, $cacheFileOut, $ext,
 	$self->{cacheFileIn} = $cacheFileIn;
 
 	unlink <$cacheDir/$file*>
-		if ($self->{request}-{'no-cache'});
+		if ( $self->{request}->{'no-cache'} );
 	#
 	# If the file is cached we will compare the file date against the version
 	# on the server
@@ -369,6 +401,13 @@ local ( $proto, $url, $dir, $file, $cacheDir, $cacheFileIn, $cacheFileOut, $ext,
 			# might write our own version later...
 			#
 			# system ( 'gzip', $sourceFile );
+
+			#
+			#  is sourceFile in SERA?
+			#
+			$sourceFile = LiveGeez::CacheAsSERA::HTML ( $self, $sourceFile )
+				unless ( $self->{request}->{sysIn}->{sysName} eq "sera" );
+
 			return ( $self->{sourceFile} = $sourceFile );
 		}
 
@@ -379,9 +418,14 @@ local ( $proto, $url, $dir, $file, $cacheDir, $cacheFileIn, $cacheFileOut, $ext,
 	} else {
 		MakeCacheDir ($cacheDir);
 		mirror ($URL, $sourceFile);
+		#
+		#  is sourceFile in SERA?
+		#
+		$sourceFile = LiveGeez::CacheAsSERA::HTML ( $self, $sourceFile )
+			unless ( $self->{request}->{sysIn}->{sysName} eq "sera" );
 	}
 
-	return ( $self->{$sourceFile} = $sourceFile );
+	$self->{$sourceFile} = $sourceFile;
 
 }
 
@@ -428,9 +472,6 @@ my $self = shift;
 local ( $cacheFile ) = $self->{cacheFileOut};
 local ( $fileStream );
 
-	#  Avoid extra test and die on Open if we don't exist.
-	#
-	# CgiDie ("!: Requested File: $cacheFile Not Found!\n") if ( !(-e $cacheFile) );
 
 	print PrintHeader if ( !$self->{request}->{HeaderPrinted} );
 	$fileStream = ($self->{isZipped}) ? "gzip -d --stdout $cacheFile |" : "$cacheFile";
@@ -458,8 +499,6 @@ local ( $cacheFile ) = $self->{cacheFileOut};
 local ( $fileStream );
 
 
-	# CgiDie ("!: Requested File: $cacheFile Not Found!\n") if ( !(-e $cacheFile) );
-
 	$fileStream = ($self->{isZipped}) ? "gzip -d --stdout $cacheFile |" : "$cacheFile";
 
 	open ( FILE, "$fileStream" ) || CgiDie ("!: Could Not Open Cached File: $cacheFile!\n");
@@ -473,7 +512,8 @@ local ( $fileStream );
 sub SaveToCache
 {
 my $self = shift;
-local ($cacheFile) = $self->{cacheFileIn};
+local ( $cacheFile ) = $self->{cacheFileIn};
+
 
     open (CACHEFILE, "| tee $cacheFile") 
     	  || CgiDie ("!: Can't Open $cacheFile!\n");
@@ -487,14 +527,15 @@ local ($cacheFile) = $self->{cacheFileIn};
 
 sub show
 {
-my ( $self ) = shift;
+my $self = shift;
+
 
 	foreach $key (keys %$self) {
 		if ( ref $self->{$key} ) {
 			$self->{$key}->show();
 		}
 		else {
-			print "  $key  = $self->{$key}\n";
+			print "  $key = $self->{$key}\n";
 		}
 	}
 

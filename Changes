@@ -1,5 +1,9 @@
 Revision history for Perl module LiveGeez
 
+0.05  Wed Jun 30 02:05:00 EET DST 1999
+	- CacheAsSERA added, processing of non-SERA HTML files is now
+	  possible
+	- many enhancements for HTML processing
 
 0.04  Wed May 12 17:35:59 EET DST 1999
 	- bug fixes, Zobel exits more gracefully now.

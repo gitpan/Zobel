@@ -14,13 +14,13 @@ require Exporter;
 			AboutLiveGeez
 			);
 
-require Convert::Ethiopic;
-use Convert::Ethiopic::Time;
-use Convert::Ethiopic::Cstocs;
-use Convert::Ethiopic::System;
-use HTML::Entities;
 use LiveGeez::Local;
-use LiveGeez::File;
+require LiveGeez::File;
+require Convert::Ethiopic;
+require Convert::Ethiopic::Time;
+require Convert::Ethiopic::Cstocs;
+require Convert::Ethiopic::System;
+require HTML::Entities;
 
 
 #------------------------------------------------------------------------------#
@@ -64,7 +64,7 @@ local ( $request ) = shift;
 			 . HtmlBot 
 			   if ( $request->{phrase} );
 
-	return ( $fortune );
+	$fortune;
 
 }
 
@@ -83,7 +83,7 @@ sub ProcessNumber
 local ( $request ) = shift;
 
 
-	local ( $eNumber ) = EthiopicNumber ( $request );
+	local ( $eNumber ) = Convert::Ethiopic::Cstocs::EthiopicNumber ( $request );
 
 	$eNumber = HtmlTop ( "Converting $request->{number} into Ethiopic..." )
 			 . "$request->{number} is "
@@ -91,7 +91,7 @@ local ( $request ) = shift;
 			 . HtmlBot
 			   if ( $request->{phrase} );
 
-	return ( $eNumber );
+	$eNumber;
 
 }
 
@@ -118,11 +118,11 @@ local ( $request ) = shift;
 			   if ( $request->{sysOut}->{'7-bit'} );
 
 	$eString = HtmlTop ( "Your Ethiopic Phrase!" )
-			 . "$number is $eString\n"
+			 . "$eString\n"
 			 . HtmlBot
 			   if ( $request->{phrase} );
 
-	return ( $eString );
+	$eString;
 
 }
 
@@ -144,7 +144,7 @@ sub AboutLiveGeez
 	print <<ABOUT;
 <h1 align="center">About LiveGe'ez &amp; LibEth</h1>
 
-<p>This is the GFF implementation of the LiveGe'ez Remote Processing Protocal.  Ethiopic web service is performed through a collection of CGI scripts (Zobel v.0.04) written in Perl interfaced with the LibEth library (v. $leVersion).</p>
+<p>This is the GFF implementation of the LiveGe'ez Remote Processing Protocal.  Ethiopic web service is performed through a collection of CGI scripts (Zobel v.0.05) written in Perl interfaced with the LibEth library (v. $leVersion).</p>
 <h3>For More Information Visit:</h3>
 <ul>
   <li> <a href="http://libeth.netpedia.net/">LibEth</a>
@@ -282,7 +282,7 @@ local ( $returnDate );
 				  if ( $request->{sysOut}->{'7-bit'} );
 
 
-	return ( $returnDate );
+	$returnDate;
 
 }
 
@@ -331,7 +331,7 @@ local ( $r ) = shift;
 		return ( 0 );
 	}
 
-	return ( 1 );
+	1;
 
 }
 #########################################################

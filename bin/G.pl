@@ -97,7 +97,8 @@ local ( $r ) = shift;
 	print "Content-type: text/html\n";
 	if ( $r ) {
 		$r->{HeaderPrinted} = "true";
-		print setCookie ( $r->{sysOut}->{sysName}, $r->{frames} )
+		print  setCookie ( $r->{sysOut}->{sysName}, $r->{frames}, 
+	                       $r->{sysOut}->{'7-bit'} );
 	} elsif ( $0 =~ "NoFrames" ) {
 		print setCookie ( $defaultSysOut, "no" );
 	} else {

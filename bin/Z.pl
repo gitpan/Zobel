@@ -31,7 +31,8 @@ local ( $r ) = shift;
 
 	print "Content-type: text/html\n";
 	$r->{HeaderPrinted} = "true";
-	print  setCookie ( $r->{sysOut}->{sysName}, $r->{frames} )
+	print  setCookie ( $r->{sysOut}->{sysName}, $r->{frames}, 
+	                   $r->{sysOut}->{'7-bit'} );
 }
 
 

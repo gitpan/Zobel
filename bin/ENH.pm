@@ -10,13 +10,11 @@ require Exporter;
 			ProcessNoFramesFile
 			);
 
-use Convert::Ethiopic::Time;
-use Convert::Ethiopic::Cstocs;
-use Convert::Ethiopic::System;
 use LiveGeez::Local;
 use LiveGeez::File;
 use LiveGeez::Services;
 use LiveGeez::HTML;
+use Convert::Ethiopic::Time;
 
 
 
@@ -294,8 +292,8 @@ sub ProcessNoFramesFile
 {
 local ( $r ) = shift;
 local ( $articleFile ) = $r->{file};
-local ( $TEMPLATETOP )     = "misc/NoFrames/left.sera.html";
-local ( $TEMPLATEBOT )     = "misc/NoFrames/right.sera.html";
+local ( $TEMPLATETOP ) = "misc/NoFrames/left.sera.html";
+local ( $TEMPLATEBOT ) = "misc/NoFrames/right.sera.html";
 
 
 

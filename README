@@ -50,6 +50,12 @@ README file for the Zobel LiveGe'ez RPP Implementation.
 		HTML markups for compliance with the LiveGe'ez Remote Processing
 		Protocol.
 
+	Program LiveGeez::CacheAsSERA
+
+		Provides the routines for conversion of HTML document content
+		from Ethiopic encoding systems into SERA for document caching and
+		later conversion into other Ethiopic systems.
+
 	Program LiveGeez::Local
 
 		The required module by all other LiveGe'ez modules.  Local.pm

@@ -8,9 +8,9 @@ require Exporter;
 			setCookie
 			);
 
-use Convert::Ethiopic::System;
 use LiveGeez::Local;
 require "$cgiDir/cookies.pl";
+require Convert::Ethiopic::System;
 
 
 sub new
@@ -25,7 +25,7 @@ sub show
 my ( $self ) = shift;
 
 	foreach $key (sort keys %$self) {
-		print "  $key  = $self->{$key}\n";
+		print "  $key = $self->{$key}\n";
 	}
 
 }
@@ -62,7 +62,10 @@ local ( $pragma, $key );
 	$self->{'date-only'}        = "true" if ( $self->{pragma} =~ /date-only/  );
 	$self->{'is-holiday'}       = "true" if ( $self->{pragma} =~ /is-holiday/ );
 
+	# We don't want to propogate "no-cache" into new links:
+	$self->{pragma} =~ s/no-cache(,)?//;
 
+	1;
 }
 
 
@@ -84,7 +87,8 @@ local ( %input ) = @_ if @_  > 1;
 		$input{xferOut} = $B if ( !$input{xferOut} );
 	}
 
-	$self->{sysOut}     =  Convert::Ethiopic::System->new( $input{sysOut} );
+	$self->{sysOut} = Convert::Ethiopic::System->new( $input{sysOut} ) 
+		|| CgiDie ( "Unrecognized Conversion System: $input{sysOut}." );
 
 
 	#==========================================================================
@@ -103,6 +107,9 @@ local ( %input ) = @_ if @_  > 1;
 
     $self->{sysOut}->{options}  = $noOps;
 
+    $self->{sysOut}->{options} |= $self->{sysOut}->{TTName}
+								  if ( $self->{sysOut}->TTName =~ /^\d$/ );
+
 	$self->{sysOut}->{options} |= $debug
 								  if ( $self->{pragma} =~ /debug/      );
 	$self->{sysOut}->{options} |= $ethOnly
@@ -116,6 +123,7 @@ local ( %input ) = @_ if @_  > 1;
 	$self->{sysOut}->{options} |= $uppercase
 								  if ( $self->{pragma} =~ /uppercase/  );
 
+	1;
 }
 
 
@@ -147,16 +155,22 @@ local ( $key, $pragma );
 
 	#==========================================================================
 	#
-	# Now to refine sysIn and sysOut and set defaults.
+	# Now to define sysIn and sysOut and set defaults.
 	#
 
-	# $self->{sysIn} = "sera" if ( !$input{sysIn} && $input{file} =~ ".sera." );
-
-	$self->{sysIn}   =  ( $input{sysIn} )
-	                 ?  Convert::Ethiopic::System->new( $input{sysIn} )
-	                 :  Convert::Ethiopic::System->new( $defaultSysIn )
-	                 ;
-
+    if ( $input{file} =~ "://" )  {  # A URL
+		$self->{sysIn}  =  ( $input{sysIn} )
+		                ?  Convert::Ethiopic::System->new( $input{sysIn} )
+		                :  ( $input{file} =~ /.sera./i )
+		                   ? Convert::Ethiopic::System->new( "sera" )
+		                   : 0
+		                   ;
+    } else {
+		$self->{sysIn} = ( $input{sysIn} )
+		               ?  Convert::Ethiopic::System->new( $input{sysIn} )
+		               :  Convert::Ethiopic::System->new( $defaultSysIn )
+		               ;
+	}
 	$self->SysOut ( \%input );
 
 
@@ -166,7 +180,7 @@ local ( $key, $pragma );
 	#
 
 	$self->{sysOut}->SysXfer ( lc ( $input{xferOut} ) );
-	$self->{sysIn}->SysXfer ( lc ( $input{xferIn} ) );
+	$self->{sysIn}->SysXfer  ( lc ( $input{xferIn} ) ) if ( $self->{sysIn} );
 
 
 	#==========================================================================
@@ -249,6 +263,7 @@ local ( $key, $pragma );
 		$self->{type} = "about";
 	}
 
+	1;
 }
 #########################################################
 # Do not change this, Do not put anything below this.

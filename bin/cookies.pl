@@ -1,7 +1,9 @@
 #!/usr/bin/perl
 
-require "/home2/enh/HTML/cgi/cgi-lib.pl";  # edit this line for your site
+require "/home/enh/HTML/cgi/cgi-lib.pl";
 
+# %thecookies = &getCookies();
+# $thecookies{'geezsys'};
 
 sub getCookies {
 	# cookies are seperated by a semicolon and a space, this will split
@@ -32,9 +34,3 @@ sub setCookie{
 
 	return "Set-Cookie: prefs=$name=$value&frames=$frames; expires=$expires; path=$path; domain=$domain\n\n";
 }
-#########################################################
-# Do not change this, Do not put anything below this.
-# File must return "true" value at termination
-1;
-##########################################################
-

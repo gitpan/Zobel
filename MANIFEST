@@ -7,6 +7,7 @@ LiveGeez/HTML.pm
 LiveGeez/Local.pm
 LiveGeez/Request.pm
 LiveGeez/Services.pm
+LiveGeez/CacheAsSERA.pm
 bin/Z.pl
 bin/G.pl
 bin/ENH.pm

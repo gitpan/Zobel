@@ -8,71 +8,9 @@ require Exporter;
 			FileBuffer
 			);
 
-require Convert::Ethiopic;
-use Convert::Ethiopic::Cstocs;
-use HTML::Entities;
 use LiveGeez::Local;
-
-
-sub FileBuffer
-{
-local ( $file ) = shift;
-local ( $pragmi );
-local ( $scriptRoot ) = ( $file->{baseURL} ) 
-                      ? $file->{request}->{scriptURL} 
-                      : $file->{request}->{scriptBase}
-                      ;
-
-
-	$_ = Convert::Ethiopic::ConvertEthiopicString (
-		 $file->{htmlData},
-		 $file->{request}->{sysIn}->{sysNum},
-		 $file->{request}->{sysIn}->{xferNum},
-		 $file->{request}->{sysOut}->{sysNum},
-		 $file->{request}->{sysOut}->{xferNum},
-		 $file->{request}->{sysOut}->{fontNum},
-		 $file->{request}->{sysOut}->{langNum},
-		 $file->{request}->{sysOut}->{iPath},
-		 $file->{request}->{sysOut}->{options},
-		 0    #  </font> closing
-	);
-
-	local ( $sysOut ) = $file->{request}->{sysOut}->{sysName};
-	$sysOut .= ".$file->{request}->{sysOut}->{xfer}"
-			if ( $file->{request}->{sysOut}->{xfer} ne "notv" );
-	$sysPragmaOut = ( $file->{request}->{pragma} )
-	              ?  "$sysOut&pragma=$file->{request}->{pragma}"
-	              :  $sysOut
-	              ;
-
-	s/LIVEGEEZSYS/$sysOut/g;
-    s/<LIVEGEEZ([\s\w,="]+menu([^>]+)?)>/FontMenu($1, $sysOut, $file->{request}->{file})."\n"/ime;
-
-	s/<a(\s+)(href[^>]+)>/UpdateHREF($sysPragmaOut, $file->{baseDomain}, $file->{baseURL}, $scriptRoot, $2)/oeig;
-	s/<img([\s\w,="]+src[^>]+)>/UpdateSRC($file->{baseDomain}, $file->{baseURL}, $scriptRoot, $1)/oeig;
-	s/frame(\s+)src="/frame src="$scriptRoot?sys=$sysPragmaOut&file=$file->{baseURL}/oig;
-	s/datesys/cal/g;
-	s/cal=/sys=$sysPragmaOut&cal=/g;
-	s/action(\s+)?=(\s+)?(")?LIVEGEEZLINK(")?/action="$scriptURL"/oig;
-
-
-	if ( $sysOut =~ "JIS" ) {  # this should be in the jis filter, but this is easier
-		s/\&laquo;/þü/ig;
-		s/\&#171;/þü/g;
-		s/\&raquo;/þý/ig;
-		s/\&#187;/þý/g;
-	}
-
-    s/(<body)/<base href="$file->{baseURL}">\n$1/i
-    	 if ( $file->{baseURL} && !/<base\s/i );
-
-	$_ = HTML::Entities::encode($_, "\200-\377")
-  		 if ( $file->{request}->{sysOut}->{'7-bit'} );
-
-	$file->{htmlData} = $_;
-
-	return;
-}
+require Convert::Ethiopic;
+require HTML::Entities;
 
 
 sub UpdateHREF
@@ -103,6 +41,7 @@ local ( $link, $LGLink, $target );
 		$link = "$baseDomain/$link";
 	}
 
+	$link =~ s#/(\w+)/\.\./#/#;  # stupid servers need this...
 	return "<a href=\"$scriptRoot?sys=$sysOut&file=$link\"$target>";
 
 }
@@ -128,6 +67,16 @@ local ( $link, $LGLink, $target );
 
 	return "<img $args>";
 
+}
+
+
+sub FixLink
+{
+local ( $link ) = shift;
+
+	$link = "$scriptRoot?sys=$sysPragmaOut&file=$file->{baseURL}$link";
+	$link =~ s#/(\w+)/\.\./#/#;  # stupid servers need this...
+	$link;
 }
 
 
@@ -223,12 +172,98 @@ local ( $menu, $name, $selected, $other );
       <option value=Washrasl>Washrasl  Primary</option>
       <option value=Wookianos>Wookianos Primary</option>
       <option value=Yebse>Yebse Primary</option>
-    </select>";
+  </select>";
 
     $menu =~ s/$selected>/$selected selected>/ if ( $selected );
 
-    return ( $menu );
+    $menu;
 
+}
+
+
+sub FileBuffer
+{
+local ( $file ) = shift;
+local ( $pragmi );
+local ( $scriptRoot ) = ( $file->{baseURL} ) 
+                      ? $file->{request}->{scriptURL} 
+                      : $file->{request}->{scriptBase}
+                      ;
+
+
+	$_ = Convert::Ethiopic::ConvertEthiopicString (
+		 $file->{htmlData},
+		 $file->{request}->{sysIn}->{sysNum},
+		 $file->{request}->{sysIn}->{xferNum},
+		 $file->{request}->{sysOut}->{sysNum},
+		 $file->{request}->{sysOut}->{xferNum},
+		 $file->{request}->{sysOut}->{fontNum},
+		 $file->{request}->{sysOut}->{langNum},
+		 $file->{request}->{sysOut}->{iPath},
+		 $file->{request}->{sysOut}->{options},
+		 0    #  </font> closing
+	);
+
+	local ( $sysOut ) = $file->{request}->{sysOut}->{sysName};
+	$sysOut .= ".$file->{request}->{sysOut}->{xfer}"
+			if ( $file->{request}->{sysOut}->{xfer} ne "notv" );
+	$sysPragmaOut = ( $file->{request}->{pragma} )
+	              ?  "$sysOut&pragma=$file->{request}->{pragma}"
+	              :  $sysOut
+	              ;
+
+	s/LIVEGEEZSYS/$sysOut/g;
+	s/<a(\s+)(href[^>]+)>/UpdateHREF($sysPragmaOut, $file->{baseDomain}, $file->{baseURL}, $scriptRoot, $2)/oeig;
+	s/<img([\s\w,="]+src[^>]+)>/UpdateSRC($file->{baseDomain}, $file->{baseURL}, $scriptRoot, $1)/oeig;
+	s/<frame([^>]+)src="?([^"]+)"?/"<frame$1src=\"".FixLink($2)."\""/oeig;
+
+	#
+	#  Calendar Links
+	#
+	s/datesys/cal/g;
+	s/cal=/sys=$sysPragmaOut&cal=/g;
+
+	#
+	#  Forms
+	#
+	s/action(\s+)?=(\s+)?(")?LIVEGEEZLINK(")?/action="$scriptRoot"/oig;
+    s/<LIVEGEEZ([\s\w,="]+menu([^>]+)?)>/FontMenu($1, $sysOut, $file->{request}->{file})/imge;
+
+
+	s/<LIVEGEEZMENU(\s+value[^>]+)?>/<form$1 LIVEGEEZFORM>\n<\/form>/oig;
+	s/<form(\s+)(value[^>]+?)?LIVEGEEZFORM>/<form LIVEGEEZPOST>\n  <LIVEGEEZ FORMFILE>\n  <LIVEGEEZ FORMCOOKIE>\n  <LIVEGEEZ FORMMENU>\n  <LIVEGEEZ $2FORMSUBMIT>/oig;
+	s/<form(\s+)LIVEGEEZPOST>/<form action="$scriptRoot" method="GET">/oig;
+	s/<LIVEGEEZ(\s+)FORMFILE>/<input type="hidden" name="file" value="$file->{request}->{file}">/oig;
+	s/<LIVEGEEZ(\s+)FORMCOOKIE>/<input type="hidden" name="setcookie" value="true">/oig;
+	s/<LIVEGEEZ(\s+)FORMMENU>/FontMenu("name=\"sysOut\"", $sysOut, $file->{request}->{file})/oieg;
+	s/<LIVEGEEZ(\s+)(value(\s*)=(\s*)"?([^"]+)"?(\s+))?FORMSUBMIT>/my $value = ( $5 ) ? $5 : "Reopen"; "<input type=\"submit\" value=\"$value\">"/oeig;
+	s/<LIVEGEEZ(\s+)FORMMACFRIENDLY>/<nobr><input type="checkbox" name="pragma" value="7-bit"> Mac Friendly<\/nobr>/oig;
+	
+
+
+	if ( $sysOut =~ "JIS" ) {  # this should be in the jis filter, but this is easier
+		s/\&laquo;/þü/ig;
+		s/\&#171;/þü/g;
+		s/\&raquo;/þý/ig;
+		s/\&#187;/þý/g;
+	}
+
+	if ( $file->{baseURL} 
+	     && (!/<base/i || (/<(base)([^>]+)>/i && $2 !~ /href/i)) )
+    {
+		if ( $1 ) {
+			s/<(base)([^>]+)>/<$1$2 href="$file->{baseURL}">/i;
+		} else {
+			s/(<body)/<base href="$file->{baseURL}">\n$1/i;
+		}
+	}
+
+	$_ = HTML::Entities::encode($_, "\200-\377")
+  		 if ( $file->{request}->{sysOut}->{'7-bit'} );
+
+	$file->{htmlData} = $_;
+
+	return;
 }
 #########################################################
 # Do not change this, Do not put anything below this.
@@ -246,7 +281,7 @@ LiveGeez::HTML - HTML Conversions for LiveGe'ez
 
 =head1 SYNOPSIS
 
-FileBuffer ( $f );  # Where is $f is a File.pm object.
+FileBuffer ( $f );  # Where $f is a File.pm object.
 
 =head1 DESCRIPTION
 

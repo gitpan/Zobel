@@ -3,7 +3,7 @@ use Config;
 
 use ExtUtils::MakeMaker;
 
-my $VERSION = '0.04';
+my $VERSION = '0.05';
 
 sub MY::dist {
 	package MY; # so that "SUPER" works right
@@ -18,6 +18,5 @@ WriteMakefile(
 	VERSION		=> $VERSION,
 	dist		=> { COMPRESS => 'gzip -9f', SUFFIX => 'gz',
 		POSTOP => 'mv $(DISTNAME)-$(VERSION).tar.gz ../' },
-	clean		=> { FILES => 'bin/Z.pl' },
 	);
 
