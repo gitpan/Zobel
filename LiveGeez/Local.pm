@@ -37,7 +37,7 @@ require Exporter;
 	$iPath          = "/f";       # where we keep fidel images, if any
 	$defaultBGColor	= "#f0f0f0";  # default background color of pages
 	$cookieDomain	= ".ethiopiaonline.net";
-	$cookieExpires	= "Thu, 11-Nov-99 00:00:00 GMT";
+	$cookieExpires	= "Thu, 11-Nov-01 00:00:00 GMT";
 
 $| = 1;  # always a good idea!
 

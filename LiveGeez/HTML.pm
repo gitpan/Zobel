@@ -5,11 +5,11 @@ require Exporter;
 
 @ISA = qw(Exporter);
 @EXPORT = qw(
-			FileBuffer
-			);
+          FileBuffer
+          );
 
 use LiveGeez::Local;
-require Convert::Ethiopic;
+use Convert::Ethiopic;
 require HTML::Entities;
 
 
@@ -53,19 +53,19 @@ my ( $baseDomain, $baseURL, $scriptRoot, $args ) = @_;
 my ( $link, $LGLink, $target );
 
 
-    $src = $3 if ( $args =~ /src(\s*)=(\s*)"?([^"]+)"?/i );
+	$src = $3 if ( $args =~ /src(\s*)=(\s*)"?([^"]+)"?/i );
 
-    return "<img $args>" if ( $src =~ /^(\w)+:/ );
+	return "<img $args>" if ( $src =~ /^(\w)+:/ );
 
 	if ( $baseURL ) {
 		$args =~ s#(")?/#$1$baseDomain/# if ( $src =~ /^\// );
 	} 
 	elsif ( $baseDomain ) {
-	  # update src for local files
+		# update src for local files
 		$args =~ s#(src(\s*)=(\s*)"?)#$1$baseDomain/# if ( $src !~ /^\// );
 	}
 
-	return "<img $args>";
+	"<img $args>";
 
 }
 
@@ -102,7 +102,7 @@ my ( $menu, $name, $selected, $other );
 
 
 	$menu = 
-    "<select$name$script>
+   "<select$name$script>
       <option value=FirstTime>Choose A Font!</option>
       <option value=Addis>Addis One</option> 
       <option value=Addis98>Addis98</option> 
@@ -114,6 +114,7 @@ my ( $menu, $name, $selected, $other );
       <option value=AGF-Rejim>AGF - Rejim</option>
       <option value=AGF-Yigezu-Bisrat>AGF - Yigezu Bisrat</option>
       <option value=ALXethiopian>ALXethiopian</option>
+      <option value=AMH3>AMH3</option>
       <option value=AmharicKechin>Amharic  Kechin</option>
       <option value=AmharicYigezuBisrat>Amharic Yigezu Bisrat</option>
       <option value=AmharicGazetta>Amharic Gazetta</option>
@@ -131,7 +132,6 @@ my ( $menu, $name, $selected, $other );
       <option value=Ethiopia>Ethiopia Primary</option>
       <option value=EthiopiaSlanted>Ethiopia Slanted Primary</option>
       <option value=EthiopiaAnsiP>EthiopiaAnsiP</option>
-      <option value=EthiopiaSlantAnsiP>EthiopiaSlantAnsiP</option>
       <option value=EthioSoft>EthioSoft</option>
       <option value=Ethiopic>ETHIOPIC</option>
       <option value=Fidel>FIDEL~`SOFTWARE</option>
@@ -152,6 +152,7 @@ my ( $menu, $name, $selected, $other );
       <option value=GeezThin>GeezThin</option>
       <option value=GeezTimesNew>GeezTimeNew</option>
       <option value=GeezType>GeezType</option>
+      <option value=GeezTypeNet>GeezTypeNet</option>
       <option value=GeezEditAmharicP>Ge&#232;zEdit Amharic P</option>
       <option value=GFZemen>GF Zemen Primary</option>
       <option value=GFZemen2K>GF Zemen2K Ahadu</option>
@@ -177,9 +178,9 @@ my ( $menu, $name, $selected, $other );
       <option value=Yebse>Yebse Primary</option>
   </select>";
 
-    $menu =~ s/$selected>/$selected selected>/ if ( $selected );
+	$menu =~ s/$selected>/$selected selected>/ if ( $selected );
 
-    $menu;
+	$menu;
 
 }
 
@@ -189,9 +190,9 @@ sub FileBuffer
 my $file = shift;
 my $pragmi;
 my ( $scriptRoot ) = ( $file->{baseURL} ) 
-                     ? $file->{request}->{scriptURL} 
-                     : $file->{request}->{scriptBase}
-                     ;
+                   ? $file->{request}->{scriptURL} 
+                   : $file->{request}->{scriptBase}
+                   ;
 
 
 	$_ = Convert::Ethiopic::ConvertEthiopicString (
@@ -230,7 +231,6 @@ my ( $scriptRoot ) = ( $file->{baseURL} )
 	#  Forms
 	#
 	s/action(\s+)?=(\s+)?(")?LIVEGEEZLINK(")?/action="$scriptRoot"/oig;
-    s/<LIVEGEEZ([\s\w,="]+menu([^>]+)?)>/FontMenu($1, $sysOut, $file->{request}->{file})/imge;
 
 
 	s/<LIVEGEEZMENU(\s+value[^>]+)?>/<form$1 LIVEGEEZFORM>\n<\/form>/oig;
@@ -242,6 +242,7 @@ my ( $scriptRoot ) = ( $file->{baseURL} )
 	s/<LIVEGEEZ(\s+)(value(\s*)=(\s*)"?([^"]+)"?(\s+))?FORMSUBMIT>/my $value = ( $5 ) ? $5 : "Reopen"; "<input type=\"submit\" value=\"$value\">"/oeig;
 	s/<LIVEGEEZ(\s+)FORMMACFRIENDLY>/<nobr><input type="checkbox" name="pragma" value="7-bit"> Mac Friendly<\/nobr>/oig;
 	s/(value="7-bit")>/$1 checked>/ if ( $file->{request}->{sysOut}->{'7-bit'} );
+	s/<LIVEGEEZ([\s\w,="]+menu([^>]+)?)>/FontMenu($1, $sysOut, $file->{request}->{file})/imge;
 	
 
 
@@ -254,7 +255,7 @@ my ( $scriptRoot ) = ( $file->{baseURL} )
 
 	if ( $file->{baseURL} 
 	     && (!/<base/i || (/<(base)([^>]+)>/i && $2 !~ /href/i)) )
-    {
+	{
 		if ( $1 ) {
 			s/<(base)([^>]+)>/<$1$2 href="$file->{baseURL}">/i;
 		} else {

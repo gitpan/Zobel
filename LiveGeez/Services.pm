@@ -115,8 +115,15 @@ my $request = shift;
 		1       #  closing
 	);
 
+	if ( $request->{sysOut}->{sysName} eq "sera" ) {
+		$eString =~ s/<</&#171;/g;
+		$eString =~ s/>>/&#187;/g;
+	}
+
 	$eString = HTML::Entities::encode($eString, "\200-\377")
 			   if ( $request->{sysOut}->{'7-bit'} );
+
+	$estring =~ s/\xa0/&nbsp;/g;  # wish HTML::Entities didn't do this..
 
 	$eString = $request->TopHtml ( "Your Ethiopic Phrase!" )
 			 . "$eString\n"

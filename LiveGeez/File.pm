@@ -34,32 +34,29 @@ my $request = shift;
 my $self    = {};
 
 
-	if ( $request->{file} !~ /\/$/ ) {
-		if ( $request->{file} !~ /htm(l)?$/i ) {
-			$request->{file} .= "/";
-		}
-		#
-		# What do we check for?
-		#
-		# elsif ( ) {
-		# 		$request->DieCgi ( "Unrecognized file type, does not appear to be HTML $request->{file}" );
-		# 	}
-	}
+	#
+	# what else could we test for?
+	#
+	$request->{file} .= "/"
+		if ( $request->{file} !~ /htm(l)?$/i && $request->{file} !~ /\/$/ );
+
+	$request->DieCgi ( "Unrecognized file type, does not appear to be HTML<br>$request->{file}" )
+		if ( $request->{file} !~ /htm(l)?$/i && $request->{file} !~ /\/$/ );
 
 	$self->{request}     =   $request;
 
 	$self->{fileSysOut}  =   $request->{sysOut}->{sysName};
 	$self->{fileSysOut} .= ".$request->{sysOut}->{xfer}"
-							 if ( $request->{sysOut}->{xfer} ne "notv" );
+				 if ( $request->{sysOut}->{xfer} ne "notv" );
 	$self->{fileSysOut} .= ".7-bit"
-							 if ( $request->{sysOut}->{'7-bit'} );
+				 if ( $request->{sysOut}->{'7-bit'} );
 	$self->{fileSysOut} .= ".$request->{sysOut}->{options}"
-							 if ( $request->{sysOut}->{options} );
+				 if ( $request->{sysOut}->{options} );
 	$self->{fileSysOut} .= ".$request->{sysOut}->{lang}";
 	$self->{fileSysOut} .= ".NoFrames"
-							 if ( $request->{frames} eq "no" );
+				 if ( $request->{frames} eq "no" );
 	$self->{fileSysOut} .= ".FirstTime"
-							 if ( $request->{FirstTime} );
+				 if ( $request->{FirstTime} );
 
 	my $blessing = bless $self, $class;
 
@@ -266,6 +263,7 @@ my ( $dir, $file, $cacheDir, $cacheFileIn, $cacheFileOut, $sourceFile, $ext );
 
 	if ( $file ) {
 		$file = reverse($file);
+		$file =~ s/[ ()]/_/g;
 	} else {
 		# we were passed a directory reference
 		# so for caching purposes we'll use "index.html"
@@ -285,6 +283,7 @@ my ( $dir, $file, $cacheDir, $cacheFileIn, $cacheFileOut, $sourceFile, $ext );
 	$ext  =  $1;
 	$file =~ s/\.sera$//i;
 
+	$dir          =~ s/[ ()]/_/g;
 	$cacheDir     = "$FileCacheDir/$dir";
 	$cacheFileIn  = "$cacheDir/$file.$self->{fileSysOut}.$ext";
 	$cacheFileOut =  ( $diskFile !~ /\/Frames/ )
@@ -308,8 +307,8 @@ my ( $dir, $file, $cacheDir, $cacheFileIn, $cacheFileOut, $sourceFile, $ext );
 		#
 		#  Check Date Here
 		#
-		if ( $checkFileDates &&
-			  ( (stat ( $cacheFileOut ))[9] < (stat ( $sourceFile ))[9] ) )
+		if ( $checkFileDates
+			 && ( (stat ( $cacheFileOut ))[9] < (stat ( $sourceFile ))[9] ) )
 	 	{
 			#
 			#  if old delete and get New
@@ -362,17 +361,21 @@ my ( $proto, $url, $dir, $file, $cacheDir, $cacheFileIn, $cacheFileOut, $ext, $b
 
 	chop ($proto);
 	$dir = reverse($dir);
+	$url = lc($url);
 	$baseURL = "$proto://$url/$dir/";
-	$self->{baseDomain} = "$proto://$url/$1" if ( $dir =~ /^(~[^\/]+)/ );
+	$self->{baseDomain}  = "$proto://$url/";
+	$self->{baseDomain} .= "$1" if ( $dir =~ /^(~[^\/]+)/ );
 
 	if ( $file ) {
 		$file = reverse($file);
+		$file =~ s/[ ()]/_/g;
 	} else {
 		# we were passed a directory reference
 		# so for caching purposes we'll use "index.html"
 		$file = "index.html";
 	}
 
+	$dir		=~ s/[ ()]/_/g;
 	$cacheDir   = "$URLCacheDir/$url/$dir";
 	$sourceFile = "$cacheDir/$file";
 
@@ -431,7 +434,7 @@ my ( $proto, $url, $dir, $file, $cacheDir, $cacheFileIn, $cacheFileOut, $ext, $b
 			unless ( $self->{request}->{sysIn}->{sysName} eq "sera" );
 	}
 
-	$self->{$sourceFile} = $sourceFile;
+	$self->{sourceFile} = $sourceFile;
 
 }
 

@@ -1,5 +1,10 @@
 Revision history for Perl module LiveGeez
 
+0.11 Sat Nov 13 23:53:37 EST 1999
+	- File.pm fixes for file and dirs names with spaces and parenthesis.
+	- GeezTypeNet and AMH3 fonts added.
+	- bug fix for SERA guillemets in HTML.
+
 0.10 Thu Aug 26 00:12:33 EET DST 1999
 	- bug fix in SetCookie (forgotten in 0.09).
 	- GFZemen2K font added.

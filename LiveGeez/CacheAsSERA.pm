@@ -33,12 +33,9 @@ my $self = shift;
 		} elsif ( !/[<>]|(^(\s+)$)/o ) { # not a tag or empty space
 			$self->{request}->{sysIn}  = ${$FontStack [ $self->{fontStack} ]{sysIn}};
 			$self->{request}->{string} = &decode_more_entities(HTML::Entities::decode($_));
-			$_ = ProcessString ( $self->{request} );
-
-			s/\xa0/&nbsp;/g;  # wish HTML::Entities didn't do this..
-
-			$_ = "<sera>$_</sera>";
-		} elsif ( />./ ) {    # very rare, I hope... some software seems to
+			$_ = "<sera>" . ProcessString ( $self->{request} ) . "</sera>";
+		}
+		elsif ( />./ ) {      # very rare, I hope... some software seems to
 		                      # like " ?> " to close images.  This could be
 		                      # an HTML::Parser error
 			my $trash;
@@ -88,7 +85,7 @@ my ( $self, $args ) = ( shift, shift );
 		return ( "" )
 	}
 
-    $args =~ s/(\s*)?face(\s*)=(\s*)"?([^"]+)"?//i;
+	$args =~ s/(\s*)?face(\s*)=(\s*)"?([^"]+)"?//i;
 
 	"<font$args>";
 
@@ -151,18 +148,18 @@ my $seraFile = $sourceFile;
 	$file->{isZipped} = "true";
 	$file->{request}->{sysIn} = new Convert::Ethiopic::System ( "sera" );
 
-	return ("$seraFile.gz") if (-e "$seraFile.gz");
+	return ( "$seraFile.gz" ) if (-e "$seraFile.gz");
 
-   	$p->{request}->{sysOut} = new Convert::Ethiopic::System ( "sera" );
+	$p->{request}->{sysOut} = new Convert::Ethiopic::System ( "sera" );
 
 
-	system ( 'gzip', '-d', $sourceFile ) if ( $sourceFile =~ s/\.gz$// ) ;
+	system ( 'gzip', '-d', $sourceFile ) if ( $sourceFile =~ s/\.gz$// );
 
 	$p->parse_file( $sourceFile );
 	open ( OUT, ">$seraFile" ) || $p->{request}->DieCgi
 		 ( "!: Could Not Open Source File: $seraFile!\n" );
 
-	$_ = join ("", @gFile);
+	$_ = join ( "", @gFile );
 	#
 	# strip extra <sera> and </sera> tags
 	#
@@ -185,7 +182,7 @@ my $seraFile = $sourceFile;
 }
 
 
-%entity2char	=(
+%entity2char		=(
 	'sbquo'		=>	"\x82",
 	'bdquo'		=>	"\x84",
 	'hellip'	=>	"\x85",
@@ -195,19 +192,19 @@ my $seraFile = $sourceFile;
 	'circ'		=>	"\x88",
 	'Scaron'	=>	"\x8a",
 	'lsaquo'	=>	"\x8b",
-	'OElig'		=>  "\x8c",
+	'OElig'		=>	"\x8c",
 	'lsquo'		=>	"\x91",
-	'rsquo'		=>  "\x92",
-	'ldquo'		=>  "\x93",
+	'rsquo'		=>	"\x92",
+	'ldquo'		=>	"\x93",
 	'rdquo'		=>	"\x94",
-	'bull'		=>  "\x95",
+	'bull'		=>	"\x95",
  	'ndash'		=>	"\x96",
  	'mdash'		=>	"\x97",
-	'tilde'		=>  "\x98",
-	'trade'		=>  "\x99",
+	'tilde'		=>	"\x98",
+	'trade'		=>	"\x99",
 	'scaron'	=>	"\x9a",
 	'rsaquo'	=>	"\x9b",
-	'oelig'		=>  "\x9c",
+	'oelig'		=>	"\x9c",
 	'Yuml'		=>	"\x9f"
 );
 
@@ -217,17 +214,17 @@ sub decode_more_entities
 my $array;
 
 
-    if (defined wantarray) {
+	if (defined wantarray) {
 		$array = [@_]; # copy
-    }
-    else {
+	}
+	else {
 		$array = \@_;  # modify in-place
-    }
-    for (@$array) {
+	}
+	for (@$array) {
 		s/(&(\w+);?)/$entity2char{$2} || $1/eg;
 	}
 
-    $array->[0];
+	$array->[0];
 }
 #########################################################
 # Do not change this, Do not put anything below this.
