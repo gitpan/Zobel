@@ -154,7 +154,7 @@ my ( $menu, $name, $selected, $other );
       <option value=GeezType>GeezType</option>
       <option value=GeezEditAmharicP>Ge&#232;zEdit Amharic P</option>
       <option value=GFZemen>GF Zemen Primary</option>
-      <option value=GFZemen2K>GF Zemen2K Primary</option>
+      <option value=GFZemen2K>GF Zemen2K Ahadu</option>
       <option value=HahuLite>Hahu Lite</option>
       <option value=HahuGothic>Hahu Lite Gothic</option>
       <option value=HahuSerif>Hahu Lite Serif</option>

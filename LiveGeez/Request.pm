@@ -404,7 +404,7 @@ my $path;
 	$prefs   = "geezsys=$encoding&frames=$frames&7-bit=$bit7";
 	$path    = "/"; 
 
-	"Set-Cookie: prefs=$prefs; expires=$cookieExpires; path=$path; domain=$cookieDomain\n\n";
+	"Set-Cookie: prefs=$prefs; expires=$cookieExpires; path=$path; domain=$cookieDomain\n";
 
 }
 #########################################################

@@ -1,5 +1,9 @@
 Revision history for Perl module LiveGeez
 
+0.10 Thu Aug 26 00:12:33 EET DST 1999
+	- bug fix in SetCookie (forgotten in 0.09).
+	- GFZemen2K font added.
+
 0.09 Sun Aug 22 21:24:28 EET DST 1999
 	- lexical and dynamic scoping rules are now used properly.
 	- bug fix for URLs when a closing "/" is not included.
