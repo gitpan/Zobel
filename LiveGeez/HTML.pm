@@ -1,0 +1,265 @@
+package LiveGeez::HTML;
+
+require 5.000;
+require Exporter;
+
+@ISA = qw(Exporter);
+@EXPORT = qw(
+			FileBuffer
+			);
+
+require Convert::Ethiopic;
+use Convert::Ethiopic::Cstocs;
+use HTML::Entities;
+use LiveGeez::Local;
+
+
+sub FileBuffer
+{
+local ( $file ) = shift;
+local ( $pragmi );
+local ( $scriptRoot ) = ( $file->{baseURL} ) 
+                      ? $file->{request}->{scriptURL} 
+                      : $file->{request}->{scriptBase}
+                      ;
+
+
+	$_ = Convert::Ethiopic::ConvertEthiopicString (
+		 $file->{htmlData},
+		 $file->{request}->{sysIn}->{sysNum},
+		 $file->{request}->{sysIn}->{xferNum},
+		 $file->{request}->{sysOut}->{sysNum},
+		 $file->{request}->{sysOut}->{xferNum},
+		 $file->{request}->{sysOut}->{fontNum},
+		 $file->{request}->{sysOut}->{langNum},
+		 $file->{request}->{sysOut}->{iPath},
+		 $file->{request}->{sysOut}->{options},
+		 0    #  </font> closing
+	);
+
+	local ( $sysOut ) = $file->{request}->{sysOut}->{sysName};
+	$sysOut .= ".$file->{request}->{sysOut}->{xfer}"
+			if ( $file->{request}->{sysOut}->{xfer} ne "notv" );
+	$sysPragmaOut = ( $file->{request}->{pragma} )
+	              ?  "$sysOut&pragma=$file->{request}->{pragma}"
+	              :  $sysOut
+	              ;
+
+	s/LIVEGEEZSYS/$sysOut/g;
+    s/<LIVEGEEZ([\s\w,="]+menu([^>]+)?)>/FontMenu($1, $sysOut, $file->{request}->{file})."\n"/ime;
+
+	s/<a(\s+)(href[^>]+)>/UpdateHREF($sysPragmaOut, $file->{baseDomain}, $file->{baseURL}, $scriptRoot, $2)/oeig;
+	s/<img([\s\w,="]+src[^>]+)>/UpdateSRC($file->{baseDomain}, $file->{baseURL}, $scriptRoot, $1)/oeig;
+	s/frame(\s+)src="/frame src="$scriptRoot?sys=$sysPragmaOut&file=$file->{baseURL}/oig;
+	s/datesys/cal/g;
+	s/cal=/sys=$sysPragmaOut&cal=/g;
+	s/action(\s+)?=(\s+)?(")?LIVEGEEZLINK(")?/action="$scriptURL"/oig;
+
+
+	if ( $sysOut =~ "JIS" ) {  # this should be in the jis filter, but this is easier
+		s/\&laquo;/þü/ig;
+		s/\&#171;/þü/g;
+		s/\&raquo;/þý/ig;
+		s/\&#187;/þý/g;
+	}
+
+    s/(<body)/<base href="$file->{baseURL}">\n$1/i
+    	 if ( $file->{baseURL} && !/<base\s/i );
+
+	$_ = HTML::Entities::encode($_, "\200-\377")
+  		 if ( $file->{request}->{sysOut}->{'7-bit'} );
+
+	$file->{htmlData} = $_;
+
+	return;
+}
+
+
+sub UpdateHREF
+{
+local ( $sysOut, $baseDomain, $baseURL, $scriptRoot, $args ) = @_;
+local ( $link, $LGLink, $target );
+
+
+    $link   = $3 if ( $args =~ /href(\s*)=(\s*)"?([^"]+)"?/i );
+    $target = " target=\"$3\"" if ( $args =~ /target(\s*)=(\s*)"?(\w+)"?/i );
+    $LGLink = 1 if ( $args =~ /LIVEGEEZLINK/i );
+
+
+   	return ( $link =~ /^\// ) ? "<a href=\"$baseDomain$link\"$target>" : "<a $args>"
+   		if ( ($link =~ /^(\w)+:/ || $link !~ "\.sera\.") && !$LGLink);
+
+
+	if ( $baseURL ) {
+		if ( $link =~ /^\// ) {
+			$link = $baseDomain.$link;
+		}
+		else {
+			$link = $baseURL.$link;
+		}
+	}
+	elsif ( $baseDomain && $link !~ /^\// ) {
+		# update href local files
+		$link = "$baseDomain/$link";
+	}
+
+	return "<a href=\"$scriptRoot?sys=$sysOut&file=$link\"$target>";
+
+}
+
+
+sub UpdateSRC
+{
+local ( $baseDomain, $baseURL, $scriptRoot, $args ) = @_;
+local ( $link, $LGLink, $target );
+
+
+    $src = $3 if ( $args =~ /src(\s*)=(\s*)"?([^"]+)"?/i );
+
+    return "<img $args>" if ( $src =~ /^(\w)+:/ );
+
+	if ( $baseURL ) {
+		$args =~ s#(")?/#$1$baseDomain/# if ( $src =~ /^\// );
+	} 
+	elsif ( $baseDomain ) {
+	  # update src for local files
+		$args =~ s#(src(\s*)=(\s*)"?)#$1$baseDomain/# if ( $src !~ /^\// );
+	}
+
+	return "<img $args>";
+
+}
+
+
+sub FontMenu
+{
+local ( $args, $sysOut, $file ) = @_;
+local ( $menu, $name, $selected, $other );
+
+
+    $name      = $3 if ( $args =~ /name(\s*)=(\s*)"?(\w+)/i );
+    $selected  = $3 if ( $args =~ /selected(\s*)=(\s*)"?(\w+)/i );
+    $script    = $3 if ( $args =~ /script(\s*)=(\s*)"?([\w\-]+)/i );
+
+	$name   = " name=\"$name\""            if $name;
+	($selected) = split ( /\./, $sysOut )  if !$selected;
+	$script = ( $script eq "js-standard" )
+	#       ? " onChange=\"openLink(this.options[this.selectedIndex].value);\""
+	        ? " onChange=\"window.open('$scriptURL?sys=' + this.options[this.selectedIndex].value + '&file=$file', '_top');\""
+	        : " onChange=\"$script\""
+	          if ( $script );
+
+
+
+	$menu = 
+    "<select$name$script>
+      <option value=FirstTime>Choose A Font!</option>
+      <option value=Addis>Addis One</option> 
+      <option value=Addis98>Addis98</option> 
+      <option value=AddisWp>AddisWP</option> 
+      <option value=Agaw>Agaw</option>
+      <option value=AGF-Dawit>AGF - Dawit</option>
+      <option value=AGF-Zemen>AGF - Zemen</option>
+      <option value=AGF-Ejji-Tsihuf>AGF - Ejji Tsihuf</option>
+      <option value=AGF-Rejim>AGF - Rejim</option>
+      <option value=AGF-Yigezu-Bisrat>AGF - Yigezu Bisrat</option>
+      <option value=ALXethiopian>ALXethiopian</option>
+      <option value=AmharicKechin>Amharic  Kechin</option>
+      <option value=AmharicYigezuBisrat>Amharic Yigezu Bisrat</option>
+      <option value=AmharicGazetta>Amharic Gazetta</option>
+      <option value=Amharic>Amharic 1</option>
+      <option value=AmharicBook>Amharic Book 1</option>
+      <option value=Amharic_Alt>Amharic_Alt</option>
+      <option value=Amharisch>Amharisch</option>
+      <option value=Brana>Brana I</option>
+      <option value=Amharic-A>Amharic-A</option>
+      <option value=AmharQ>AmharQ</option>
+      <option value=ET-NCI>ET-NCI </option>
+      <option value=ET-NEBAR>ET-NEBAR</option>
+      <option value=ET-Saba>ET-Saba</option>
+      <option value=ET-SAMI>ET-SAMI</option>
+      <option value=Ethiopia>Ethiopia Primary</option>
+      <option value=EthiopiaSlanted>Ethiopia Slanted Primary</option>
+      <option value=EthiopiaAnsiP>EthiopiaAnsiP</option>
+      <option value=EthioSoft>EthioSoft</option>
+      <option value=Ethiopic>ETHIOPIC</option>
+      <option value=Fidel>FIDEL~`SOFTWARE</option>
+      <option value=Geez>Geez</option>
+      <option value=GeezA>GeezA</option>
+      <option value=Geez-1>Ge'ez-1</option>
+      <option value=Geez-2>Ge'ez-2</option>
+      <option value=Geez-3>Ge'ez-3</option>
+      <option value=GeezAddis>GeezAddis</option>
+      <option value=geezBasic>geezBasic</option>
+      <option value=GeezBausi>GeezBausi</option>
+      <option value=Geezigna>Geezigna</option>
+      <option value=geezLong>geezLong</option>
+      <option value=GeezNewA>GeezNewA</option>
+      <option value=GeezDemo>Geez Demo</option>
+      <option value=GeezNet>GeezNet</option>
+      <option value=GeezSindeA>GeezSindeA</option>
+      <option value=GeezThin>GeezThin</option>
+      <option value=GeezTimesNew>GeezTimeNew</option>
+      <option value=GeezType>GeezType</option>
+      <option value=GeezEditAmharicP>Ge&#232;zEdit Amharic P</option>
+      <option value=GFZemen>GF Zemen Primary</option>
+      <option value=HahuLite>Hahu Lite</option>
+      <option value=HahuGothic>Hahu Lite Gothic</option>
+      <option value=HahuSerif>Hahu Lite Serif</option>
+      <option value=HahuTimes>Hahu Lite Times</option>
+      <option value=JIS>JIS</option>
+      <option value=JUNET>JUNET</option>
+      <option value=TfanusGeez01>TfanusGeez01</option>
+      <option value=UTF7>UTF7</option>
+      <option value=UTF8>UTF8</option>
+      <option value=java>\\uabcd</option>
+      <option value=Java.uppercase>\\uABCD</option>
+      <option value=clike>\\xabcd</option>
+      <option value=Clike.uppercase>\\xABCD</option>
+      <option value=VG2-Agazian>VG2 Agazian</option>
+      <option value=VG2-Main>VG2 Main</option>
+      <option value=VG2-Title>VG2 Title</option>
+      <option value=Washra>Washra  Primary</option>
+      <option value=Washrasl>Washrasl  Primary</option>
+      <option value=Wookianos>Wookianos Primary</option>
+      <option value=Yebse>Yebse Primary</option>
+    </select>";
+
+    $menu =~ s/$selected>/$selected selected>/ if ( $selected );
+
+    return ( $menu );
+
+}
+#########################################################
+# Do not change this, Do not put anything below this.
+# File must return "true" value at termination
+1;
+##########################################################
+
+
+__END__
+
+
+=head1 NAME
+
+LiveGeez::HTML - HTML Conversions for LiveGe'ez
+
+=head1 SYNOPSIS
+
+FileBuffer ( $f );  # Where is $f is a File.pm object.
+
+=head1 DESCRIPTION
+
+HTML.pm contains the routines for conversion of HTML document content between
+Ethiopic encoding systems and for pre-interpretation of HTML markups for
+compliance with the LiveGe'ez Remote Processing Protocol.
+
+=head1 AUTHOR
+
+Daniel Yacob,  L<LibEth@EthiopiaOnline.Net|mailto:LibEth@EthiopiaOnline.Net>
+
+=head1 SEE ALSO
+
+S<perl(1).  Ethiopic(3).  L<http://libeth.netpedia.net/LiveGeez.html|http://libeth.netpedia.net/LiveGeez.html>>
+
+=cut

@@ -1,0 +1,15 @@
+Revision history for Perl module LiveGeez
+
+0.03  Wed May 12 17:35:59 EET DST 1999
+	- bug fixes
+	- requests for local files works when path is given w/o
+	  file name (checks for index.html, index.htm, index.sera.html)
+	- "src=" and "href=" links no longer require an absolute path
+	  with local files
+
+0.02  Sun May  9 20:59:09 EET DST 1999
+	- numerous bug fixes
+	- in sync with Convert::Ethiopic
+
+0.01  Sat Apr 17 18:51:34 EET 1999
+	- original version;
