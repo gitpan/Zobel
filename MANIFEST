@@ -11,5 +11,4 @@ LiveGeez/CacheAsSERA.pm
 bin/Z.pl
 bin/G.pl
 bin/ENH.pm
-bin/cookies.pl
 bin/cgi-lib.pl

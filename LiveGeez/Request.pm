@@ -4,19 +4,22 @@ require 5.000;
 require Exporter;
 
 @ISA = qw(Exporter);
-@EXPORT = qw(
-			setCookie
-			);
 
 use LiveGeez::Local;
-require "$cgiDir/cookies.pl";
+require "$cgiDir/cgi-lib.pl";
 require Convert::Ethiopic::System;
 
 
 sub new
 {
-	my $class = shift;   # Without declaring a class and blessing
-    bless {}, $class;    # inheritance doesn't happen
+my $class = shift;
+my $self = {};
+
+	my $blessing = bless $self, $class;
+
+   	$self->ParseQuery ( @_ ) unless ( @_ == 1 && $_[0] == 0 );
+
+    $blessing;
 }
 
 
@@ -34,8 +37,7 @@ my ( $self ) = shift;
 sub Pragma
 {
 my ( $self ) = shift;
-local ( *input ) = @_ if @_ == 1;
-local ( %input ) = @_ if @_  > 1;
+local ( *input ) = @_;  # We have passed _ONLY_ the reference
 local ( $pragma, $key );
 
 
@@ -69,12 +71,10 @@ local ( $pragma, $key );
 }
 
 
-
 sub SysOut
 {
 my ( $self ) = shift;
-local ( *input ) = @_ if @_ == 1;
-local ( %input ) = @_ if @_  > 1;
+local ( *input ) = @_;  # We have passed _ONLY_ the reference
 
 
 	#==========================================================================
@@ -82,26 +82,25 @@ local ( %input ) = @_ if @_  > 1;
 	#  Check Cookies for extra info each time a page is loaded.
 	#  Don't get cookie data if we are setting a new cookie.
 	#
-	%cookies = getCookies () if ( !$input{setcookie} );
-	$input{sysOut} = ( $cookies{geezsys} ) ? $cookies{geezsys} : $defaultSysOut
-		if ( !$input{sysOut} );
+	$input{sysOut} = ( !$input{setcookie} && $self->{'cookie-geezsys'} )
+				   ? $self->{'cookie-geezsys'}
+				   : $defaultSysOut
+				 	 unless ( $input{sysOut} )  # we were passed an explicit
+				   ;                            # and over-riding sysOut
 
 
 	if ( $input{sysOut} =~ /\./ ) {
 	 	my ($A,$B) = split ( /\./, $input{sysOut} );
 		$input{sysOut}  = $A;
-		$input{xferOut} = $B if ( !$input{xferOut} );
+		$input{xferOut} = $B unless ( $input{xferOut} );
 	}
 
 
-	if ( !($self->{sysOut} = Convert::Ethiopic::System->new( $input{sysOut} )) )
-	{
-		print PrintHeader;
-		CgiDie ( "Unrecognized Conversion System: $input{sysOut}." )
-	}
+	$self->DieCgi ( "Unrecognized Conversion System: $input{sysOut}." )
+		if ( !($self->{sysOut} = Convert::Ethiopic::System->new( $input{sysOut} )) );
 
 
-	if ( $cookies{'7-bit'} eq "true" ) {
+	if ( $self->{'cookie-7-bit'} eq "true" ) {
 		if ( $self->{pragma} ) {
 			$self->{pragma} .= ",7-bit" if ( $self->{pragma} !~ /7-bit/ );
 		} else {
@@ -146,18 +145,32 @@ local ( %input ) = @_ if @_  > 1;
 }
 
 
-sub ParseInput
+sub ParseQuery
 {
 my ( $self ) = shift;
-local ( *input ) = @_ if @_ == 1;
-local ( %input ) = @_ if @_  > 1;
 local ( $key, $pragma );
-
+local ( %input ) = ( @_ ) 			#  We are passed something.
+                 ? ( ref $_[0] )       #  Was it a reference?
+                   ?  %{$_[0]}            # Yes. 
+                   : @_                   # No. 
+                 : ()		#  We were not passed anything, so declare our own.
+                 ;
 
 
 	#==========================================================================
 	#
-	# First we reduce the lexicon we are going to work with 
+	# First parse input and cookie data unless of course we already have data
+
+	unless ( scalar (%input) ) {
+		$self->ParseCgi ( \%input );
+	} else {
+		$self->ParseCookie;
+	}
+
+
+	#==========================================================================
+	#
+	# Next we reduce the lexicon we are going to work with 
 	# by eliminating synanyms.
 
 	$input{sysOut}  = $input{sys}  if ( $input{sys}  && !$input{sysOut} );
@@ -243,7 +256,7 @@ local ( $key, $pragma );
 	#  Set the Request Language.
 	#
 
-	$self->{sysOut}->{lang} = $defaultLang if ( !$input{lang} );
+	$self->{sysOut}->{lang} = $defaultLang unless ( $input{lang} );
 	$self->{sysOut}->LangNum;
 	$self->{sysOut}->{LCInfo} 
 	     = ( $self->{sysOut}->{sysName} ne "Transcription" ) ? $Convert::Ethiopic::System::WITHUTF8 : 0 ;
@@ -283,7 +296,105 @@ local ( $key, $pragma );
 		$self->{type} = "about";
 	}
 
+   	undef ( %input ) unless ( @_ );
 	1;
+}
+
+
+sub TopHtml
+{
+my ( $self ) = shift;
+local ( $title ) = shift;
+local ( $bgcolor ) = ( $_[0] ) ? ( $_[0] ) : $defaultBGColor;
+
+  return <<END_OF_TEXT;
+<html>
+<head>
+<title>$title</title>
+</head>
+<body BGCOLOR="$bgcolor">
+END_OF_TEXT
+
+}
+
+
+sub BotHtml
+{
+my ( $self ) = shift;
+
+	&HtmlBot;
+}
+
+
+sub ParseCgi
+{
+my ( $self ) = shift;
+
+	unless ( $self->{CgiParsed} ) {
+		$self->{CgiParsed} = "true";
+		ReadParse ( $_[0] );
+	}
+	$self->ParseCookie unless ( $self->{cookieParsed} );
+}
+
+
+sub HeaderPrint
+{
+my ( $self ) = shift;
+
+	unless ( $self->{HeaderPrinted} ) {
+		$self->{HeaderPrinted} = "true";
+		print "Content-type: text/html\n\n";
+	}
+}
+
+
+sub DieCgi
+{
+my ( $self ) = shift;
+
+	$self->HeaderPrint;
+	CgiError ( $_[0] );
+	exit (0);
+}
+
+
+sub ParseCookie
+{
+my ( $self ) = shift;
+						# cookies are seperated by a semicolon and a space
+local ( @rawCookies ) = split ( /; /, $ENV{'HTTP_COOKIE'} );
+
+
+	foreach ( @rawCookies ) {
+    	if ( /prefs/ ) {
+ 			($prefs, $key1, $val1, $key2, $val2, $key3, $val3) = split ( /[=&]/, $_ );
+    	   	$self->{"cookie-$key1"} = $val1;                      # system
+    	   	$self->{"cookie-$key2"} = $val2;                      # frames
+    	   	$self->{"cookie-$key3"} = ($key3) ? $val3 : "false";  # 7-bit
+       	}
+	} 
+
+	$self->{cookiedParsed} = "true";
+	1;
+} 
+
+ 
+sub SetCookie
+{
+my ( $self ) = shift;
+local ( $encoding, $frames, $bit7 ) = @_;
+local ( $path );
+
+
+	$frames  = "no"    unless ( $frames );
+	$bit7    = "false" unless ( $bit7 );
+ 
+	$prefs   = "geezsys=$encoding&frames=$frames&7-bit=$bit7";
+	$path    = "/"; 
+
+	"Set-Cookie: prefs=$prefs; expires=$cookieExpires; path=$path; domain=$cookieDomain\n\n";
+
 }
 #########################################################
 # Do not change this, Do not put anything below this.
@@ -301,19 +412,15 @@ LiveGeez::Request - Parse a LiveGe'ez CGI Query
 
 =head1 SYNOPSIS
 
- use LiveGeez::Local;
  use LiveGeez::Request;
  use LiveGeez::Services;
 
  main:
  {
- local ( %input );
- local ( $r ) = LiveGeez::Request->new;
 
+ 	local ( $r ) = LiveGeez::Request->new;
 
-	ReadParse ( \%input );
-	$r->ParseInput ( \%input );
-	ProcessRequest ( $r ) || CgiDie ( "Unrecognized Request." );
+	ProcessRequest ( $r ) || $r->DieCgi ( "Unrecognized Request." );
 
 	exit (0);
 
@@ -322,6 +429,10 @@ LiveGeez::Request - Parse a LiveGe'ez CGI Query
 =head1 DESCRIPTION
 
 Request.pm instantiates an object that contains a parsed LiveGe'ez query.
+Upon instantiation the environment is checked for CGI info and cookie data
+is read and used.  This does B<NOT> happen if a populated hash table is
+passed (in which case the hash data is applied) or if "0" is passed as an
+arguement.
 The request object is required by any other LiveGe'ez function of object.
 
 =head1 AUTHOR

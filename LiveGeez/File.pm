@@ -4,8 +4,8 @@ require 5.000;
 
 use LiveGeez::Local;
 use LiveGeez::HTML;
-require LiveGeez::CacheAsSERA;
 if ( $processURLs ) {
+	require LiveGeez::CacheAsSERA;
 	use LWP::Simple;
 }
 #
@@ -38,7 +38,7 @@ my $self = {};
 	    if ( $request->{file} !~ /\.(\w+)$/ && $request->{file} !~ /\/$/ );
 
 
-	CgiDie ( "Unrecognized file type, does not appear to be HTML<br>$request->{file}" )
+	$request->DieCgi ( "Unrecognized file type, does not appear to be HTML<br>$request->{file}" )
 		if ( $request->{file} !~ /htm(l)?$/i && $request->{file} !~ /\/$/ );
 
 	$self->{request}     =   $request;
@@ -94,7 +94,7 @@ local ( $sourceFile, $fileStream, $fileIsURL );
 	# ...or we could redirect to Zobel server that does allow remote
 	# processing...
 	#
-	CgiDie ( "Sorry!  Zobel at $scriptBase is for local use only!\n" )
+	$self->{request}->DieCgi ( "Sorry!  Zobel at $scriptURL is for local use only!\n" )
 		if ( $fileIsURL && !$processURLs );
 
 
@@ -115,7 +115,8 @@ local ( $sourceFile, $fileStream, $fileIsURL );
 	#
 	$fileStream = ($self->{isZipped}) ? "gzip -d --stdout $sourceFile |" : "$sourceFile";
 
-	open ( FILE, "$fileStream" ) || CgiDie ( "!: Could Not Open File: $sourceFile!\n" );
+	open (FILE, "$fileStream") || $self->{request}->DieCgi
+	     ( "!: Could Not Open File: $sourceFile!\n" );
 
 
 	#
@@ -178,9 +179,9 @@ my $self = shift;
 local ( $cacheFile ) = $self->{cacheFileIn};
 
 
-	print PrintHeader if ( !$self->{request}->{HeaderPrinted} );
+	$self->{request}->HeaderPrint;
     open (CACHEFILE, "| tee $cacheFile") 
-    	  || CgiDie ("!: Can't Open $cacheFile!\n");
+    	  || $self->{request}->DieCgi ( "!: Can't Open $cacheFile!\n" );
 	print CACHEFILE $self->{htmlData};
 	close (CACHEFILE);
 
@@ -313,7 +314,7 @@ local ( $dir, $file, $cacheDir, $cacheFileIn, $cacheFileOut, $sourceFile, $ext )
 			#
 			#  is sourceFile in SERA?
 			#
-			$sourceFile = CacheAsSERA::HTML ( $self, $sourceFile )
+			$sourceFile = LiveGeez::CacheAsSERA::HTML ( $self, $sourceFile )
 				unless ( $self->{request}->{sysIn}->{sysName} eq "sera" );
 		} else {
 			$sourceFile = $cacheFileOut;
@@ -473,10 +474,11 @@ local ( $cacheFile ) = $self->{cacheFileOut};
 local ( $fileStream );
 
 
-	print PrintHeader if ( !$self->{request}->{HeaderPrinted} );
+	$self->{request}->HeaderPrint;
 	$fileStream = ($self->{isZipped}) ? "gzip -d --stdout $cacheFile |" : "$cacheFile";
 
-	open ( FILE, "$fileStream" ) || CgiDie ("!: Could Not Open Cached File: $cacheFile!\n");
+	open ( FILE, "$fileStream" ) || $self->{request}->DieCgi
+		 ( "!: Could Not Open Cached File: $cacheFile!\n" );
 	print <FILE>;
     close (FILE);
 
@@ -501,7 +503,8 @@ local ( $fileStream );
 
 	$fileStream = ($self->{isZipped}) ? "gzip -d --stdout $cacheFile |" : "$cacheFile";
 
-	open ( FILE, "$fileStream" ) || CgiDie ("!: Could Not Open Cached File: $cacheFile!\n");
+	open (FILE, "$fileStream") || $self->{request}->DieCgi
+	     ( "!: Could Not Open Cached File: $cacheFile!\n" );
 	@gFile = <FILE>;
 	$self->{htmlData} = join ( "", @gFile );
     close (FILE);
@@ -515,8 +518,8 @@ my $self = shift;
 local ( $cacheFile ) = $self->{cacheFileIn};
 
 
-    open (CACHEFILE, "| tee $cacheFile") 
-    	  || CgiDie ("!: Can't Open $cacheFile!\n");
+    open (CACHEFILE, "| tee $cacheFile")
+    	  || $self->{request}->DieCgi ( "!: Can't Open $cacheFile!\n" );
 	print CACHEFILE $self->{htmlData};
 	close (CACHEFILE);
 
@@ -556,19 +559,16 @@ LiveGeez::File - File Openning and Caching for LiveGe'ez
 
 =head1 SYNOPSIS
 
- use LiveGeez::Local;
  use LiveGeez::Request;
  use LiveGeez::File;
 
  main:
  {
- local ( %input );
- local ( $r ) = LiveGeez::Request->new;
 
+ 	local ( $r ) = LiveGeez::Request->new;
 
-	ReadParse ( \%input );
-	$r->ParseInput ( \%input );
 	my ( $f ) = LiveGeez::File->new ( $r );
+
 	$f->Display;
 
 	exit (0);

@@ -14,14 +14,15 @@ require Exporter;
 			AboutLiveGeez
 			);
 
-use LiveGeez::Local;
 require LiveGeez::File;
 require Convert::Ethiopic;
 require Convert::Ethiopic::Time;
 require Convert::Ethiopic::Cstocs;
 require HTML::Entities;
 
+$fortuneDir       = "$Local::webRoot/fortunes/";
 ($unicode, $utf8) = ( $Convert::Ethiopic::System::unicode,  $Convert::Ethiopic::System::utf8 );
+
 
 #------------------------------------------------------------------------------#
 #
@@ -40,7 +41,7 @@ sub ProcessFortune
 local ( $request ) = shift;
 
 
-	open (FORTUNE, "fortune $cgiDir/fortunes/ |");
+	open (FORTUNE, "fortune $fortuneDir |");
 	local ( $fortune ) = Convert::Ethiopic::ConvertEthiopicFileToString (
 		\*FORTUNE,
 		$unicode,
@@ -50,7 +51,7 @@ local ( $request ) = shift;
 		$request->{sysOut}->{fontNum},
 		$request->{sysOut}->{langNum},
 		$request->{sysOut}->{iPath},
-		$request->{sysOut}->{options},
+		$request->{sysOut}->{options}
 	);
 	close (FORTUNE);
 
@@ -59,9 +60,9 @@ local ( $request ) = shift;
 	$fortune = HTML::Entities::encode($fortune, "\200-\377")
 			   if ( $request->{sysOut}->{'7-bit'} );
 
-	$fortune = HtmlTop ( "Your Ethiopian Fortune!" )
+	$fortune = $request->TopHtml ( "Your Ethiopian Fortune!" )
 			 . $fortune
-			 . HtmlBot 
+			 . $request->BotHtml 
 			   if ( $request->{phrase} );
 
 	$fortune;
@@ -85,10 +86,10 @@ local ( $request ) = shift;
 
 	local ( $eNumber ) = Convert::Ethiopic::Cstocs::EthiopicNumber ( $request );
 
-	$eNumber = HtmlTop ( "Converting $request->{number} into Ethiopic..." )
+	$eNumber = $request->TopHtml ( "Converting $request->{number} into Ethiopic..." )
 			 . "$request->{number} is "
 			 . "$eNumber\n"
-			 . HtmlBot
+			 . $request->BotHtml
 			   if ( $request->{phrase} );
 
 	$eNumber;
@@ -111,15 +112,15 @@ local ( $request ) = shift;
 		$request->{sysOut}->{langNum},
 		$request->{sysOut}->{iPath},
 		$request->{sysOut}->{options},
-		1,      #  closing
+		1       #  closing
 	);
 
 	$eString = HTML::Entities::encode($eString, "\200-\377")
 			   if ( $request->{sysOut}->{'7-bit'} );
 
-	$eString = HtmlTop ( "Your Ethiopic Phrase!" )
+	$eString = $request->TopHtml ( "Your Ethiopic Phrase!" )
 			 . "$eString\n"
-			 . HtmlBot
+			 . $request->BotHtml
 			   if ( $request->{phrase} );
 
 	$eString;
@@ -138,13 +139,15 @@ local ( $request ) = shift;
 #------------------------------------------------------------------------------#
 sub AboutLiveGeez
 {
+local ( $request ) = shift;
 
-	print HtmlTop( "About LiveGe'ez &amp; LibEth" );
+
+	print $request->TopHtml ( "About LiveGe'ez &amp; LibEth" );
 	my ( $leVersion ) = Convert::Ethiopic::LibEthVersion;
 	print <<ABOUT;
 <h1 align="center">About LiveGe'ez &amp; LibEth</h1>
 
-<p>This is the GFF implementation of the LiveGe'ez Remote Processing Protocal.  Ethiopic web service is performed through a collection of CGI scripts (Zobel v.0.07) written in Perl interfaced with the LibEth library (v. $leVersion).</p>
+<p>This is the GFF implementation of the LiveGe'ez Remote Processing Protocal.  Ethiopic web service is performed through a collection of CGI scripts (Zobel v.0.08) written in Perl interfaced with the LibEth library (v. $leVersion).</p>
 <h3>For More Information Visit:</h3>
 <ul>
   <li> <a href="http://libeth.netpedia.net/">LibEth</a>
@@ -152,7 +155,7 @@ sub AboutLiveGeez
   <li> <a href="http://libeth.netpedia.net/LiveGeez.html">LiveGe'ez</a>
 </ul>
 ABOUT
-	print HtmlBot;
+	print $request->BotHtml;
 	exit (0);
 
 }
@@ -212,16 +215,16 @@ local ( $returnDate );
 				$request->{sysOut}->{langNum},
 				$request->{sysOut}->{iPath},
 				$request->{sysOut}->{options},
-				1,      #  closing
+				1       #  closing
 			);
 		}
 		else {
 			$phrase = "$date->{etDay}/$date->{etMonth}/$date->{etYear} is <u>not</u> a holiday.\n"
 		}
 
-		$returnDate = HtmlTop ( "Checking Holidy for $date->{etDay}/$date->{etMonth}/$date->{etYear}" )
+		$returnDate = $request->TopHtml ( "Checking Holidy for $date->{etDay}/$date->{etMonth}/$date->{etYear}" )
 				 	. $phrase
-				 	. HtmlBot
+				 	. $request->BotHtml
 					;
 	}
 	elsif ( $request->{'is-holiday'} ) {
@@ -234,48 +237,63 @@ local ( $returnDate );
 						  = $date->getDayMonthYearDayName;
 		my ($euDoW)		  = $date->getEuroDayOfWeek;
 		my ($euMonthName) = $date->getEuroMonth;
+		my ($etDate)      = "$etDoW፣ $etMonthName $date->{etDay} $etNumYear ";
+
+
+		if ( $r->{sysOut}->{LCInfo} ) {
+			$etDate = Convert::Ethiopic::ConvertEthiopicString (
+							$etDate,
+							$unicode,
+							$utf8,
+							$request->{sysOut}->{sysNum},
+							$request->{sysOut}->{xferNum},
+							$request->{sysOut}->{fontNum},
+							$request->{sysOut}->{langNum},
+							$request->{sysOut}->{iPath},
+							$request->{sysOut}->{options},
+							1       #  closing
+			);
+
+			$etDayName = Convert::Ethiopic::ConvertEthiopicString (
+							$etDayName,
+							$unicode,
+							$utf8,
+							$request->{sysOut}->{sysNum},
+							$request->{sysOut}->{xferNum},
+							$request->{sysOut}->{fontNum},
+							$request->{sysOut}->{langNum},
+							$request->{sysOut}->{iPath},
+							$request->{sysOut}->{options},
+							1       #  closing
+			);
+		}
 
 		if ( $request->{calIn} eq "euro" ) {
 			#
 			# Convert from European -> Ethiopian
 			#
-			$phrase = HtmlTop ( "From The European Calendar To The Ethiopian" )
-	 				. "<h3>$euDoW, $euMonthName $date->{euDay}, $date->{euYear}"
-	 				. " <i><font color=blue><u>is</u></font></i> "
-					. "$etDoW፣ $etMonthName $date->{etDay} $etNumYear "
-					;
-		}
-		else {
+			$phrase = $request->TopHtml ( "From The European Calendar To The Ethiopian" )
+					. "<h3>$euDoW, $euMonthName $date->{euDay}, $date->{euYear}"
+					. " <i><font color=blue><u>is</u></font></i> "
+					. $etDate
+					. " <i>(<font color=red>$etDayName</font>)</i></h3>\n";
+		} else {
 			#
 			# Convert from Ethiopian -> European
 			#
-			$phrase = HtmlTop ( "From The Ethiopian Calendar To The European" )
-					. "<h3>$etDoW፣ $etMonthName $date->{etDay} $etNumYear "
-			        . "<i><font color=blue><u>is</u></font></i> "
-			        . "$euDoW, $euMonthName $date->{euDay}, $date->{euYear} "
-			        ;
+			$phrase = $request->TopHtml ( "From The Ethiopian Calendar To The European" )
+					. "<h3>"
+			        . $etDate
+					. " <i><font color=blue><u>is</u></font></i> "
+					. "$euDoW, $euMonthName $date->{euDay}, $date->{euYear}"
+					. " <i>(<font color=red>$etDayName</font>)</i></h3>\n";
 		} 
 
-		$phrase .= "<i>(<font color=red>$etDayName</font>)</i></h3>\n";
 
-		if ( $r->{sysOut}->{LCInfo} ) {
-			$phrase = Convert::Ethiopic::ConvertEthiopicString (
-				$phrase,
-				$unicode,
-				$utf8,
-				$request->{sysOut}->{sysNum},
-				$request->{sysOut}->{xferNum},
-				$request->{sysOut}->{fontNum},
-				$request->{sysOut}->{langNum},
-				$request->{sysOut}->{iPath},
-				$request->{sysOut}->{options},
-				1,      #  closing
-			);
-		} else {
-			$phrase =~ s/፣/,/;
-		}
+		$phrase =~ s/፣/,/ unless ( $r->{sysOut}->{LCInfo} );
+
+		$returnDate = $phrase . $request->BotHtml;
 					 
-		$returnDate = $phrase . HtmlBot;
   	}
 
 	$returnDate = HTML::Entities::encode($returnDate, "\200-\377")
@@ -292,8 +310,7 @@ sub ProcessRequest
 local ( $r ) = shift;
 
 
-	print PrintHeader;
-	$r->{HeaderPrinted} = "true";
+	$r->HeaderPrint;
 
 	if ( $r->{type} eq "file") {
 		# Only SERA supported at this time...
@@ -303,12 +320,11 @@ local ( $r ) = shift;
 	elsif ( $r->{type} eq "calendar" ) {
 
 		# What time is it??
-		if ( $r->{calIn} && $r->{calIn}   !~ /(ethio)|(euro)/ ) {
-			CgiDie ("Unsupported Calendar System: $r->{calIn}");
-		}
-		if ( $r->{calOut} && $r->{calOut} !~ /(ethio)|(euro)/ ) {
-			CgiDie ("Unsupported Calendar System: $r->{calOut}");
-		}
+		$r->DieCgi ( "Unsupported Calendar System: $r->{calIn}" )
+			if ( $r->{calIn} && $r->{calIn}   !~ /(ethio)|(euro)/ );
+		$r->DieCgi ( "Unsupported Calendar System: $r->{calOut}" )
+			if ( $r->{calOut} && $r->{calOut} !~ /(ethio)|(euro)/ );
+		
     	print ProcessDate ( $r );
 	}
 	elsif ( $r->{type} eq "string" ) {
@@ -325,7 +341,7 @@ local ( $r ) = shift;
 	}
 	elsif ( $r->{type} eq "about" ) {
 		#  For folks who want to know more... 
-		AboutLiveGeez ();
+		AboutLiveGeez ( $r );
 	}
 	else {
 		return ( 0 );
@@ -350,19 +366,15 @@ LiveGeez::Services - Request Processing Services for LiveGe'ez
 
 =head1 SYNOPSIS
 
- use LiveGeez::Local;
  use LiveGeez::Request;
  use LiveGeez::Services;
 
  main:
  {
- local ( %input );
- local ( $r ) = LiveGeez::Request->new;
-	
 
-	ReadParse ( \%input );
-	$r->ParseInput ( \%input );
-	ProcessRequest ( $r ) || CgiDie ( "Unrecognized Request." );
+ 	local ( $r ) = LiveGeez::Request->new;
+
+	ProcessRequest ( $r ) || $r->DieCgi ( "Unrecognized Request." );
 
 	exit (0);
 

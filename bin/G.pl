@@ -5,13 +5,47 @@ use LiveGeez::Request;
 use LiveGeez::Services;
 use ENH;
 
+
+sub SetCookie
+{
+local ( $r ) = shift;
+
+
+	if ( $r ) {
+		print $r->SetCookie ( $r->{sysOut}->{sysName}, $r->{frames}, 
+							  $r->{sysOut}->{'7-bit'} );
+	} elsif ( $0 =~ "NoFrames" ) {
+		print $r->SetCookie ( $defaultSysOut, "no", "false" );
+	} else {
+		print $r->SetCookie ( $defaultSysOut, "yes", "false" );
+	}
+
+}
+
+
+sub CheckBrowser
+{
+	my @browser = split(/ /, $ENV{HTTP_USER_AGENT});
+	if ($browser[0]=~/Mozilla/) { 
+		my @model      = split(/\//, $browser[0]);
+		local $brand   = $model[0];	
+		local $version = $model[1];
+	}
+    $wantFrames = ( (($version >= 2) && ($brand eq "Mozilla"))
+					|| (($version >= 3) && ($browser[0] =~ /MSIE/)) )
+				? $wantFrames = "yes"
+				: $wantFrames = "no"
+				;
+}
+
+
 main:
 {
 local ( %input ) = ();
-local ( $r ) = LiveGeez::Request->new;
+local ( $r ) = LiveGeez::Request->new ( 0 ); # don't parse input
 
 
-	if ( $ENV{PATH_INFO} ) {
+	if ( ($pathInfo = $ENV{PATH_INFO}) ) {
 		#
 		#  If the URL is in the form http://www.us.com/X.pl/SYSTEM/
 		#                         or http://www.us.com/X.pl/SYSTEM/index.html
@@ -20,22 +54,41 @@ local ( $r ) = LiveGeez::Request->new;
 		#  we process and exit.
 		#
 
-		my @fileString =  split ('/', $ENV{PATH_INFO});
-		my $sys        =  $fileString[1];
-		if ( $#fileString == 1 || $fileString[2] eq "index.html" ) {
-			$input{file} = "/index.sera.html";
+		if ( $pathInfo =~ "/Selamta/" ) {
+			$r->ParseCookie;
+			$input{file}    = "/index.sera.html";
+			$input{sysOut}  = ( $r->{'cookie-geezsys'} )
+			                ? ( $r->{'cookie-geezsys'} )
+			                : "FirstTime"
+			                ;
+			$input{'7-bit'} = ( $r->{'cookie-7-bit'} )
+			                ? ( $r->{'cookie-7-bit'} )
+			                : ( $ENV{HTTP_USER_AGENT} =~ /Mac/i )
+			                  ? "true"
+			                  : "false"
+			                ;
+			$input{frames}  = ( $r->{'cookie-frames'} )
+			                ? ( $r->{'cookie-frames'} )
+			                : CheckBrowser
+			                ;
+		} else {
+			my @fileString    =  split ( '/', $pathInfo );
+			my $sys           =  $fileString[1];
+			if ( $#fileString == 1 || $fileString[2] eq "index.html" ) {
+				$input{file}  = "/index.sera.html";
+			}
+			else {
+				$input{file}  =  $pathInfo;
+				$input{file}  =~ s/\/$sys//;
+				$input{file} .=  "/index.sera.html"
+					if ( $input{file} !~ /htm(l)?$/ );
+			}
+			$sys = "FirstTime"  if  ( ($sys =~ /image/i) || ($sys eq "ENHPFR") );
+			$input{sysOut} = $sys;
 		}
-		else {
-			$input{file}  =  $ENV{PATH_INFO};
-			$input{file}  =~ s/\/$sys//;
-			$input{file} .=  "/index.sera.html"
-				if ( $input{file} !~ /htm(l)?$/ );
-		}
-		$sys = "FirstTime"  if  ( ($sys =~ /image/i) || ($sys eq "ENHPFR") );
-		$input{sysOut} = $sys;
 
 	} else {
-		ReadParse ( \%input );
+		$r->ParseCgi ( \%input );
 	}
 
 
@@ -49,16 +102,17 @@ local ( $r ) = LiveGeez::Request->new;
 		$r->{FirstTime} = "true";
 		$r->{setCookie} = "true";
 	}
-	$input{file} = "/index.sera.html" if ( $input{file} =~ /(\/)?index.serax.html/ );
 
-	$r->ParseInput ( \%input );
+	$r->ParseQuery ( \%input );
 	undef ( %input );
 
 
-	&SetCookie ( $r ) if ( $r->{setCookie} );
+	SetCookie ( $r ) if ( $r->{setCookie} );
 
 
-    if ( $r->{type} eq "file" ) {
+	if ( $r->{type} eq "file" ) {
+
+		$r->HeaderPrint;
 
 		$r->{isArticle} = "true" if ( $r->{file} =~ /[0-9]\.sera/ );
 		if ( $0 =~ "NoFrames" ) {
@@ -81,51 +135,10 @@ local ( $r ) = LiveGeez::Request->new;
 		}
 
     } else {
-		ProcessRequest ( $r ) || CgiDie ( "Unrecognized Request." );
+		ProcessRequest ( $r ) || $r->DieCgi ( "Unrecognized Request." );
     }
 
 	exit (0);
-
-}
-
-
-sub SetCookie
-{
-local ( $r ) = shift;
-
-
-	print "Content-type: text/html\n";
-	if ( $r ) {
-		$r->{HeaderPrinted} = "true";
-		print  setCookie ( $r->{sysOut}->{sysName}, $r->{frames}, 
-	                       $r->{sysOut}->{'7-bit'} );
-	} elsif ( $0 =~ "NoFrames" ) {
-		print setCookie ( $defaultSysOut, "no", "false" );
-	} else {
-		print setCookie ( $defaultSysOut, "yes", "false" );
-	}
-
-}
-
-
-sub PrintKeys 
-{
-local ( *input ) = @_ if @_ == 1;
-local ( %input ) = @_ if @_  > 1;
-local ( $key );
-
-
-	print PrintHeader;
-	print HtmlTop ( "CGI Keys Received" );
-	print "<h1 align=\"center\">CGI Keys Received:</h1>\n\n";
-
-	print "<ul>\n";
-    for $key ( keys %input ) {
-      print "  <li><b>$key =\&gt; $input{$key}</b>\n";
-    }
-	print "</ul>\n";
-
-    print HtmlBot ();
 
 }
 

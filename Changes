@@ -1,5 +1,13 @@
 Revision history for Perl module LiveGeez
 
+0.08 Fri Jul 30 11:24:01 EET DST 1999
+	- General rework and extension of Request architecture.
+	- directit.pl integrated into G.pl.
+	- cookies.pl integrated into Request.pm (ParseCookie, SetCookie, 
+	  $cookieExpires, $cookieDomain)
+	- TopHtml, BotHtml, ParseCgi, DieCgi methods added.  $defaultBGColor added.
+	- Method PrintHeader renamed HeaderPrint and ParseInput renamed ParseQuery.
+
 0.07 Mon Jul 12 21:05:21 EET DST 1999
 	- PrintHeader added in Request.pm when sysOut look up fails.
 	- cookies.pl no longer imports cgi-lib.pl

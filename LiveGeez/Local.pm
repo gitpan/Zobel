@@ -5,12 +5,6 @@ require Exporter;
 
 @ISA = qw(Exporter);
 @EXPORT = qw(
-			ReadParse
-			PrintHeader
-			HtmlTop
-			HtmlBot
-			CgiDie
-
 			$webRoot
 			$cgiDir
 			$scriptBase
@@ -23,6 +17,9 @@ require Exporter;
 			$processURLs
 			$checkFileDates
 			$iPath
+			$defaultBGColor
+			$cookieDomain
+			$cookieExpires
 			);
 
 
@@ -35,11 +32,12 @@ require Exporter;
 	$defaultLang    = "amh";      # assumed preferred language
 	$defaultSysIn   = "sera";     # assume files are in this system
 	$defaultSysOut  = "GFZemen";  # default font conversion
-	$processURLs    = 1;       # should we let people use our bandwidth?
-	$checkFileDates = 1;       # should we compare local file dates with cache?
-	$iPath          = "/f";    # where we keep fidel images, if any
-
-require "$cgiDir/cgi-lib.pl";
+	$processURLs    = 1;          # should we let people use our bandwidth?
+	$checkFileDates = 1;        # should we compare local file dates with cache?
+	$iPath          = "/f";       # where we keep fidel images, if any
+	$defaultBGColor	= "#f0f0f0";  # default background color of pages
+	$cookieDomain	= ".ethiopiaonline.net";
+	$cookieExpires	= "Thu, 11-Nov-99 00:00:00 GMT";
 
 $| = 1;  # always a good idea!
 
@@ -110,8 +108,6 @@ Assume local files are in this system for conversion input.
 The font system for outputting converted documents when no system has been
 specified.
 
-Default font conversion
-
 =item '$processURLs'
 
 A 0 or 1 value to permit the processing of remote documents.  "1" is a
@@ -129,6 +125,21 @@ cache by hand or use the "no-cache" pragma to refresh cached documents.
 =item '$iPath'
 
 Path with respect to the $webRoot where "Image" fidels are stored, if any.
+
+=item '$defaultBGColor'
+
+The font system for outputting converted documents when no system has been
+specified.
+
+=item '$cookieDomain'
+
+Your site name or domain for setting cookies.  Ethiopia Online uses
+".ethiopiaonline.net".
+
+=item '$cookieExpires'
+
+Date when domain cookie should expire.  Such as Menasse Zaudou's birthday
+"Thu, 11-Nov-99 00:00:00 GMT".
 
 =back
 

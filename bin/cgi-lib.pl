@@ -1,21 +1,19 @@
 # Perl Routines to Manipulate CGI input
-# S.E.Brenner@bioc.cam.ac.uk
-# $Id: cgi-lib.pl,v 2.14 1996/10/20 12:41:02 brenner Exp $
+# cgi-lib@pobox.com
+# $Id: cgi-lib.pl,v 2.18 1999/02/23 08:16:43 brenner Exp $
 #
-# Copyright (c) 1996 Steven E. Brenner  
+# Copyright (c) 1993-1999 Steven E. Brenner  
 # Unpublished work.
 # Permission granted to use and modify this library so long as the
 # copyright above is maintained, modifications are documented, and
 # credit is given for any use of the library.
 #
 # Thanks are due to many people for reporting bugs and suggestions
-# especially Meng Weng Wong, Maki Watanabe, Bo Frese Rasmussen,
-# Andrew Dalke, Mark-Jason Dominus, Dave Dittrich, Jason Mathews
 
 # For more information, see:
-#     http://www.bio.cam.ac.uk/cgi-lib/
+#     http://cgi-lib.stanford.edu/cgi-lib/
 
-$cgi_lib'version = sprintf("%d.%02d", q$Revision: 2.14 $ =~ /(\d+)\.(\d+)/);
+$cgi_lib'version = sprintf("%d.%02d", q$Revision: 2.18 $ =~ /(\d+)\.(\d+)/);
 
 
 # Parameters affecting cgi-lib behavior
@@ -54,17 +52,18 @@ $cgi_lib'headerout =    0;    # indicates whether the header has been printed
 # This is intended to aid debugging and may be changed in future releases
 
 sub ReadParse {
+  # Disable warnings as this code deliberately uses local and environment
+  # variables which are preset to undef (i.e., not explicitly initialized)
+  local ($perlwarn);
+  $perlwarn = $^W;
+  $^W = 0;
+
   local (*in) = shift if @_;    # CGI input
   local (*incfn,                # Client's filename (may not be provided)
 	 *inct,                 # Client's content-type (may not be provided)
 	 *insfn) = @_;          # Server's filename (for spooled files)
-  local ($len, $type, $meth, $errflag, $cmdflag, $perlwarn, $got);
+  local ($len, $type, $meth, $errflag, $cmdflag, $got, $name);
 	
-  # Disable warnings as this code deliberately uses local and environment
-  # variables which are preset to undef (i.e., not explicitly initialized)
-  $perlwarn = $^W;
-  $^W = 0;
-
   binmode(STDIN);   # we need these for DOS-based systems
   binmode(STDOUT);  # and they shouldn't hurt anything else 
   binmode(STDERR);
@@ -79,6 +78,7 @@ sub ReadParse {
   }
   
   if (!defined $meth || $meth eq '' || $meth eq 'GET' || 
+      $meth eq 'HEAD' ||
       $type eq 'application/x-www-form-urlencoded') {
     local ($key, $val, $i);
 	
@@ -141,7 +141,7 @@ $errflag = !(eval <<'END_MULTIPART');
     if ($writefiles) {
       local($me);
       stat ($writefiles);
-      $writefiles = "/tmp" unless  -d _ && -r _ && -w _;
+      $writefiles = "/tmp" unless  -d _ && -w _;
       # ($me) = $0 =~ m#([^/]*)$#;
       $writefiles .= "/$cgi_lib'filepre"; 
     }
@@ -185,6 +185,13 @@ $errflag = !(eval <<'END_MULTIPART');
  
      BODY: 
       while (($bpos = index($buf, $boundary)) == -1) {
+        if ($left == 0 && $buf eq '') {
+	  foreach $value (values %insfn) {
+            unlink(split("\0",$value));
+	  }
+	  &CgiDie("cgi-lib.pl: reached end of input while seeking boundary " .
+		  "of multipart. Format of CGI input is wrong.\n");
+        }
         die $@ if $errflag;
         if ($name) {  # if no $name, then it's the prologue -- discard
           if ($fn) { print FILE substr($buf, 0, $bufsize); }
@@ -192,7 +199,7 @@ $errflag = !(eval <<'END_MULTIPART');
         }
         $buf = substr($buf, $bufsize);
         $amt = ($left > $bufsize ? $bufsize : $left); #$maxbound==length($buf);
-        $errflag = (($got = read(STDIN, $buf, $amt, $maxbound)) != $amt);  
+        $errflag = (($got = read(STDIN, $buf, $amt, length($buf))) != $amt);
 	die "Short Read: wanted $amt, got $got\n" if $errflag;
         $left -= $amt;
       }
@@ -201,7 +208,7 @@ $errflag = !(eval <<'END_MULTIPART');
         else     { $in {$name} .= substr($buf, 0, $bpos-2); } # kill last \r\n
       }
       close (FILE);
-      last PART if substr($buf, $bpos + $blen, 4) eq "--\r\n";
+      last PART if substr($buf, $bpos + $blen, 2) eq "--";
       substr($buf, 0, $bpos+$blen+2) = '';
       $amt = ($left > $bufsize+$maxbound-length($buf) 
 	      ? $bufsize+$maxbound-length($buf) : $left);
@@ -213,11 +220,18 @@ $errflag = !(eval <<'END_MULTIPART');
       undef $head;  undef $fn;
      HEAD:
       while (($lpos = index($buf, "\r\n\r\n")) == -1) { 
+        if ($left == 0  && $buf eq '') {
+	  foreach $value (values %insfn) {
+            unlink(split("\0",$value));
+	  }
+	  &CgiDie("cgi-lib: reached end of input while seeking end of " .
+		  "headers. Format of CGI input is wrong.\n$buf");
+        }
         die $@ if $errflag;
         $head .= substr($buf, 0, $bufsize);
         $buf = substr($buf, $bufsize);
         $amt = ($left > $bufsize ? $bufsize : $left); #$maxbound==length($buf);
-        $errflag = (($got = read(STDIN, $buf, $amt, $maxbound)) != $amt);  
+        $errflag = (($got = read(STDIN, $buf, $amt, length($buf))) != $amt);
         die "Short Read: wanted $amt, got $got\n" if $errflag;
         $left -= $amt;
       }
@@ -298,9 +312,9 @@ sub HtmlTop
 <head>
 <title>$title</title>
 </head>
-<body BGCOLOR=#FFFFFF>
+<body>
+<h1>$title</h1>
 END_OF_TEXT
-# <h1>$title</h1>
 }
 
 
@@ -393,7 +407,7 @@ sub CgiError {
   };
 
   if (!$cgi_lib'headerout) { #')
-#   print &PrintHeader;	
+    # print &PrintHeader;	
     print "<html>\n<head>\n<title>$msg[0]</title>\n</head>\n<body>\n";
   }
   print "<h1>$msg[0]</h1>\n";
@@ -411,8 +425,7 @@ sub CgiError {
 sub CgiDie {
   local (@msg) = @_;
   &CgiError (@msg);
-  exit (0);
-  # die @msg;
+  die @msg;
 }
 
 

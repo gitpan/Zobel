@@ -161,8 +161,8 @@ local ( $seraFile ) = $sourceFile;
 	system ( 'gzip', '-d', $sourceFile ) if ( $sourceFile =~ s/\.gz$// ) ;
 
 	$p->parse_file( $sourceFile );
-	open ( OUT, ">$seraFile" )
-		   || CgiDie ("!: Could Not Open Source File: $seraFile!\n");
+	open ( OUT, ">$seraFile" ) || $p->{request}->DieCgi
+		 ( "!: Could Not Open Source File: $seraFile!\n" );
 
 	$_ = join ("", @gFile);
 	#

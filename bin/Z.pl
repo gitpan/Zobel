@@ -4,57 +4,27 @@ use LiveGeez::Local;
 use LiveGeez::Request;
 use LiveGeez::Services;
 
-main:
-{
-local ( %input );
-local ( $r ) = LiveGeez::Request->new;
-
-
-	ReadParse ( \%input );
-	$r->ParseInput ( \%input );
-	undef ( %input );
-
-	SetCookie ( $r ) if ( $r->{setCookie} eq "true" );
-
-	ProcessRequest ( $r ) || CgiDie ( "Unrecognized Request." );
-
-	exit (0);
-
-}
-
 
 sub
 SetCookie
 {
 local ( $r ) = shift;
 
-
-	print "Content-type: text/html\n";
-	$r->{HeaderPrinted} = "true";
-	print  setCookie ( $r->{sysOut}->{sysName}, $r->{frames}, 
-	                   $r->{sysOut}->{'7-bit'} );
+	print $r->SetCookie ( $r->{sysOut}->{sysName}, $r->{frames}, 
+						  $r->{sysOut}->{'7-bit'} );
 }
 
 
-sub
-PrintKeys 
+main:
 {
-local ( *input ) = @_ if @_ == 1;
-local ( %input ) = @_ if @_  > 1;
-local ( $key );
 
+	local ( $r ) = LiveGeez::Request->new;
 
-	print PrintHeader;
-	print HtmlTop ( "CGI Keys Received" );
-	print "<h1 align=\"center\">CGI Keys Received:</h1>\n\n";
+	SetCookie ( $r ) if ( $r->{setCookie} eq "true" );
 
-	print "<ul>\n";
-    for $key ( keys %input ) {
-      print "  <li><b>$key =\&gt; $input{$key}</b>\n";
-    }
-	print "</ul>\n";
+	ProcessRequest ( $r ) || $r->DieCgi ( "Unrecognized Request." );
 
-    print HtmlBot ();
+	exit (0);
 
 }
 

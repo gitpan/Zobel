@@ -243,9 +243,8 @@ local ( $RIGHT )  =  ( -e "$FileCacheDir/$frameRoot/right.$fileSysOut.html" )
 local ( $FILE )   =  "$scriptBase?sys=$sysPragmaOut&file=$file&frames=skip";
 
 
-	open (FRAME, "$webRoot/$frame") || &CgiDie ("!: Can't Open $frame\n");
+	open (FRAME, "$webRoot/$frame") || $r->DieCgi ( "!: Can't Open $frame\n" );
 
-	print PrintHeader;
 	while ( <FRAME> ) {
 		s/LIVEGEEZFILE/$FILE/;
 		s/LIVEGEEZTOP/$TOP/;
