@@ -1,27 +1,14 @@
 #!/usr/bin/perl -I.
 
 use strict;
-use LiveGeez::Local;
-require LiveGeez::Request;
 use LiveGeez::Services;
-
-
-sub
-SetCookie
-{
-my $r = shift;
-
-	print $r->SetCookie ( $r->{sysOut}->{sysName}, $r->{frames}, 
-	                      $r->{sysOut}->{'7-bit'} );
-}
+use LiveGeez::Config ( useapache => 0, uri_zauthority => "http://www.geez.org", uri_zpath => "/Z.pl" );
+use LiveGeez::Request;
 
 
 main:
 {
-my $r = new LiveGeez::Request;
-
-
-	SetCookie ( $r ) if ( $r->{setCookie} eq "true" );
+my $r = new LiveGeez::Request ( LiveGeez::Config->new );
 
 	ProcessRequest ( $r ) || $r->DieCgi ( "Unrecognized Request." );
 

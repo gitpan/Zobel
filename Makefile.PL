@@ -3,7 +3,7 @@ use Config;
 
 use ExtUtils::MakeMaker;
 
-my $VERSION = '0.14';
+my $VERSION = '0.20';
 
 
 WriteMakefile(

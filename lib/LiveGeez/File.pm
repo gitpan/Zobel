@@ -4,25 +4,34 @@ package LiveGeez::File;
 BEGIN
 {
 	use strict;
-	use vars qw($VERSION $DIRMASK @itoa64 @gFile);
+	use vars qw($VERSION $DIRMASK @itoa64 @gFile $RC_OK $RC_NOT_MODIFIED);
 
-	$VERSION = '0.14';
+	$VERSION = '0.20';
 
 	require 5.000;
 
-	use LiveGeez::Local;
+	# use LiveGeez::Config;
 	use LiveGeez::HTML;
 
-	if ( $processURLs ) {
-		require LiveGeez::CacheAsSERA;
-		use LWP::Simple;
-	}
+	require LiveGeez::URI;
+	require LiveGeez::CacheAsSERA;
+
+	# if ( $PROCESSURLS ) {
+	#	use LWP::Simple;
+	# }
 	#
 	# Uncomment these next 3 if using getURL command
 	#
 	# use LWP::UserAgent;
 	# use HTTP::Request;
 	# use HTTP::Response;
+	# use File::Path 'mkpath';
+	require File::Path;
+	require Apache::File;
+	require Compress::Zlib;
+	require LWP::Simple;
+	require POSIX;
+
 	$DIRMASK = "0755";
 
 	@itoa64 = split ( //, "./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz" );
@@ -34,6 +43,9 @@ BEGIN
 #
 $#gFile = 100;	# preset to one hundred lines, most articles should be
 		# smaller than this.
+
+	$RC_OK           = LWP::Simple::RC_OK();
+	$RC_NOT_MODIFIED = LWP::Simple::RC_NOT_MODIFIED();
 }
 
 
@@ -42,43 +54,65 @@ $#gFile = 100;	# preset to one hundred lines, most articles should be
 sub new
 {
 my $class   = shift;
-my $request = shift;
 my $self    = {};
 
 
-	#
-	# what else could we test for?
-	#
-	$request->{file} .= "/"
-		if ( $request->{file} !~ /htm(l)?$/i && $request->{file} !~ /\/$/ );
-
-	#
-	# this isn't a good test, check the Content-Type type.
-	#
-	# $request->DieCgi ( "Unrecognized file type, does not appear to be HTML<br>$request->{file}" )
-	# 	if ( $request->{file} !~ /htm(l)?$/i && $request->{file} !~ /\/$/ );
-
-	$self->{request}     =   $request;
-
-	$self->{fileSysOut}  =   $request->{sysOut}->{sysName};
-	$self->{fileSysOut} .= ".$request->{sysOut}->{xfer}"
-				 if ( $request->{sysOut}->{xfer} ne "notv" );
-	$self->{fileSysOut} .= ".7-bit"
-				 if ( $request->{sysOut}->{'7-bit'} );
-	$self->{fileSysOut} .= ".$request->{sysOut}->{options}"
-				 if ( $request->{sysOut}->{options} );
-	$self->{fileSysOut} .= ".$request->{sysOut}->{lang}";
-	$self->{fileSysOut} .= ".NoFrames"
-				 if ( $request->{frames} eq "no" );
-	$self->{fileSysOut} .= ".FirstTime"
-				 if ( $request->{FirstTime} );
-
 	my $blessing = bless $self, $class;
+
+	$self->_init_sysOut ( @_ );
 
 	$self->OpenFile;
 
 	$blessing;
 
+}
+
+
+sub _init_sysOut
+{
+my ( $self, $request ) = @_;
+
+
+	#
+	# this isn't a good test, check the Content-Type type.
+	#
+	# $request->DieCgi ( "Unrecognized file type, does not appear to be HTML<br>$request->{file}" )
+	# 	if ( $request->{file} !~ /\.x\w{3,}$/i && $request->{file} !~ /\/$/ );
+
+
+	$self->{request}     =   $request;
+
+	$self->{fileSysOut}  =   $request->{sysOut}->{sysName};
+
+	$self->{fileSysOut} .= ".$request->{sysOut}->{xfer}"
+				 if ( $request->{sysOut}->{xfer} ne "notv" );
+
+	$self->{fileSysOut} .= ".7-bit"
+				 if ( $request->{sysOut}->{'7-bit'} eq "true" );
+
+	$self->{fileSysOut} .= ".$request->{sysOut}->{options}"
+				 if ( $request->{sysOut}->{options} );
+
+	$self->{fileSysOut} .= ".$request->{WebFont}" if ( $request->{WebFont} );
+
+	$self->{fileSysOut} .= ".$request->{sysOut}->{lang}" unless ( $request->{file} =~ /\.$request->{sysOut}->{lang}\./ );
+
+	$self->{fileSysOut} .= ".NoFrames"
+				 if ( $request->{frames} eq "no" );
+
+	$self->{fileSysOut} .= ".FirstTime"
+				 if ( $request->{FirstTime} );
+
+	$self->{scriptRoot} = ( $self->{request}->{uri}->scheme ) 
+	                      ? $self->{request}->{config}->{uris}->{zuri} 
+	                      : $self->{request}->{config}->{uris}->{zpath}
+	                    ;
+	$self->{isCGI}       =   0;
+
+	$self->{refsUpdated} =   0;
+
+	$self->{baseUpdated} =   0;
+1;
 }
 
 
@@ -105,15 +139,13 @@ sub myRand
 sub OpenFile
 {
 my $self = shift;
-my $file = $self->{request}->{file};
 my ( $sourceFile, $fileStream, $fileIsURL );
 
 
 	#
 	# check if file is a URL, if not strip off leading "/" if any.
 	#
-	$file =~ s#^/##
-	unless ( ($fileIsURL = ( $file =~ m#^(\w)+://# )) );
+	$self->{isRemote} = ( $self->{request}->{uri}->scheme ) ? 1 : 0;
 
 
 	#
@@ -122,14 +154,13 @@ my ( $sourceFile, $fileStream, $fileIsURL );
 	# processing...
 	#
 	$self->{request}->DieCgi ( "Sorry!  Zobel at $scriptURL is for local use only!\n" )
-		if ( $fileIsURL && !$processURLs );
+		if ( $self->{isRemote} && !$self->{request}->{config}->{processurls} );
 
-	$self->{isRemote} = $fileIsURL;
 
 	#
 	# check if cached.
 	#
-	$sourceFile = ( $fileIsURL ) ? $self->CheckCacheURL : $self->CheckCacheFile;
+	$sourceFile = ( $self->{isRemote} ) ? $self->CheckCacheURL : $self->CheckCacheFile;
 
 	$self->{request}->DieCgiWithEMail ( "The requested file '$self->{request}->{file}' was not found.", "$self->{request}->{file} not found" )
 		unless ( $sourceFile );
@@ -140,24 +171,8 @@ my ( $sourceFile, $fileStream, $fileIsURL );
 	return if ( $self->{isCached} );
 
 
-	#
-	# otherwise read file into our "@gFile" buffer;
-	#
-	$fileStream = ($self->{isZipped}) ? "gzip -d --stdout $sourceFile |" : "$sourceFile";
 
-	open (FILE, "$fileStream") || $self->{request}->DieCgi
-	     ( "!: Could Not Open File: $sourceFile!\n" );
-
-	#
-	# cute one-liner but turns out to be inefficient because the string has
-	# to grow with each new line read, so we use a package-local presized array.
-	#
-	# $self->{htmlData} = join ( "", <FILE> );
-
-	@gFile = <FILE>;
-	$self->{htmlData} = join ( "", @gFile );
-
-	close ( FILE );
+	1;
 
 }
 
@@ -172,29 +187,73 @@ my $self = shift;
 	#
 	if ( $self->{isCached} ) {
 		$self->DisplayFromCache;
-		return;
 	}
 	elsif ( $self->{useSource} ) {
-	 	$self->{request}{'x-gzip'} = 0;
-	 	$self->{request}->HeaderPrint;
-	 	$self->{request}->print ( $self->{htmlData} );
-	 	return;
+		$self->DisplayFromSource;
+	}
+	else {
+
+		#
+		# Translate buffer.
+		#
+		FileBuffer ( $self );
+
+
+		#
+		# finally, display and cache the results.
+		#
+		if ( $self->{isCGI} ) {
+			$self->DisplayFileDontCache;
+			unlink ( $self->{uris}->{source} );
+			unlink ( $self->{uris}->{tmpFile} );
+		}
+		elsif ( $self->{dontCache} ) {  # probably a date="today"
+			$self->DisplayFileDontCache;
+		}
+		else {
+			$self->DisplayFileAndCache;
+		}
+
+
+		delete ( $self->{htmlData} );
+	}
+}
+
+
+sub DisplayFromSource
+{
+my $self = shift;
+
+
+	my $sourceFile = $self->{uris}->{source};
+
+	#
+	# if no modification, then redirect to source URL, if not cached
+	#
+
+
+	my $fileStream 
+	= ( ( $self->{isZipped} && $self->{request}->{'x-gzip'} ) || !$self->{isZipped} )
+	  ? $sourceFile
+	  : "gzip -d --stdout $sourceFile |"
+	;
+
+	open (SOURCEFILE, "$fileStream") || $self->{request}->DieCgi
+	     ( "!: Could Not Open File: $sourceFile!\n" );
+
+	$self->{request}->HeaderPrint;
+
+	if ( !$self->{isZipped} && $self->{request}->{'x-gzip'} ) {
+		local $/;
+		$self->{request}->print ( Compress::Zlib::memGzip( <SOURCEFILE> ) );
+	}
+	else {
+		$self->{request}->print ( <SOURCEFILE> );
 	}
 
+	close ( SOURCEFILE );
 
-	#
-	# Translate buffer.
-	#
-	FileBuffer ($self);
-
-
-	#
-	# finally, display and cache the results.
-	#
-	$self->DisplayFileAndCache;
-
-	$#gFile = -1;
-	delete ( $self->{htmlData} );
+	1;
 }
 
 
@@ -210,16 +269,22 @@ my $self = shift;
 #	require frame elements to be stored in a "Frames" subdirectory).
 #
 #------------------------------------------------------------------------------#
-sub DisplayFileAndCache
+sub DisplayFileAndCacheX
 {
 my $self = shift;
-my $cacheFile = $self->{cacheFileIn};
+my $cacheFile = $self->{uris}->{cachein};
 
 
-	$self->{request}->{'x-gzip'} = 0;
 	$self->{request}->HeaderPrint;
-	if ( $useApache ) {
-		$self->{request}->{apache}->print ( $self->{htmlData} );
+
+	if ( $self->{request}->{apache} ) {
+		if ( $self->{request}->{'x-gzip'} ) {
+			local $/;
+			$self->{request}->{apache}->print ( Compress::Zlib::memGzip( $self->{htmlData} ) );
+		}
+		else {
+			$self->{request}->{apache}->print ( $self->{htmlData} );
+		}
 		open (CACHEFILE, ">$cacheFile") 
 		|| $self->{request}->DieCgi ( "!: Can't Open $cacheFile!\n" );
 	}
@@ -227,10 +292,65 @@ my $cacheFile = $self->{cacheFileIn};
 		open (CACHEFILE, "| tee $cacheFile") 
 		|| $self->{request}->DieCgi ( "!: Can't Open $cacheFile!\n" );
 	}
+
 	print CACHEFILE $self->{htmlData};
+
 	close (CACHEFILE);
 
 	system ( 'gzip', '-f', $cacheFile ) if ( $cacheFile !~ /\/Frames/ );
+
+	1;
+}
+sub DisplayFileAndCache
+{
+my $self = shift;
+my $cacheFile = $self->{uris}->{cachein};
+
+
+	$self->{request}->HeaderPrint;
+
+	if ( $self->{request}->{'x-gzip'} ) {
+		local $/;
+		$self->{request}->print ( Compress::Zlib::memGzip( $self->{htmlData} ) );
+		open (CACHEFILE, ">$cacheFile") 
+		|| $self->{request}->DieCgi ( "!: Can't Open $cacheFile!\n" );
+	}
+	else {
+		if ( $self->{request}->{apache} ) {
+			$self->{request}->{apache}->print ( $self->{htmlData} );
+			open (CACHEFILE, ">$cacheFile") 
+				|| $self->{request}->DieCgi ( "!: Can't Open $cacheFile!\n" );
+		}
+		else {
+			open (CACHEFILE, "| tee $cacheFile") 
+			|| $self->{request}->DieCgi ( "!: Can't Open $cacheFile!\n" );
+		}
+	}
+
+	print CACHEFILE $self->{htmlData};
+
+	close (CACHEFILE);
+
+	system ( 'gzip', '-f', $cacheFile ) if ( $cacheFile !~ /\/Frames/ );
+
+	1;
+}
+
+
+sub DisplayFileDontCache
+{
+my $self = shift;
+
+
+	$self->{request}->HeaderPrint;
+	
+	if ( $self->{request}->{'x-gzip'} ) {
+		local $/;
+		$self->{request}->print ( Compress::Zlib::memGzip( $self->{htmlData} ) );
+	}
+	else {
+		$self->{request}->print ( $self->{htmlData} );
+	}
 
 	1;
 }
@@ -297,35 +417,50 @@ my $responseCode;
 sub CheckCacheFile
 {
 my $self = shift;
-my $diskFile = $self->{request}->{file};
-my ( $dir, $file, $cacheDir, $cacheFileIn, $cacheFileOut, $sourceFile, $ext );
+my ( $dir, $file, $diskFile, $cacheDir, $cacheFileIn, $cacheFileOut, $sourceFile, $ext );
 
+	$self->{doc_root} = ( $self->{request}->{config}->{set_local_base} )
+	? $self->{request}->{config}->{set_local_base} . "/"
+	: 0
+	;
+	
 
-	($file, $dir) = split ( m#/#, reverse($diskFile), 2 );
-	$dir = reverse($dir);
-	$dir =~ s|^/||;
+	$diskFile = $self->{request}->{uri}->path;
 
-	if ( $file ) {
-		$file = reverse($file);
-		$file =~ s/[ ()]/_/g;
-	}
-	else {
+	$file = $self->{request}->{uri}->file;
+
+	unless ( $file ) {
 		# we were passed a directory reference
 		# so for caching purposes we'll use "index.html"
-		if ( -e ("$webRoot/$diskFile/index.html") ) {
-			$diskFile .= "/index.html";
-		} elsif ( -e ("$webRoot/$diskFile/index.htm") ) {
-			$diskFile .= "/index.htm";
-		} elsif ( -e ("$webRoot/$diskFile/index.sera.html") ) {
+		if ( -e ("$self->{request}->{config}->{uris}->{webroot}/$diskFile/index.sera.html") ) {
 			$diskFile .= "/index.sera.html";
 		}
+		elsif ( -e ("$self->{request}->{config}->{uris}->{webroot}/$diskFile/index.html") ) {
+			$diskFile .= "/index.html";
+		} elsif ( -e ("$self->{request}->{config}->{uris}->{webroot}/$diskFile/index.htm") ) {
+			$diskFile .= "/index.htm";
+		}
 		$file = "index.html";
+	}
+	else {
+		$diskFile =~ s|^/||;
+	}
+
+	#
+	#  Look for a language specific index if we are dealing with an index
+	#
+	if ( $diskFile =~ /index\..*?\.htm(l)?$/o
+	     && $diskFile !~ /\.$request->{sysOut}->{lang}\./ ) {
+		my $langIndex = $diskFile;
+		$langIndex =~ s/index/index.$self->{request}->{sysOut}->{lang}/;
+		$diskFile = $langIndex
+		if ( -e ("$self->{request}->{config}->{uris}->{webroot}/$langIndex") );
 	}
 
 	#
 	#  Alas the sourceFile that we are working with
 	#
-	$sourceFile = "$webRoot/$diskFile";
+	$sourceFile = "$self->{request}->{config}->{uris}->{webroot}/$diskFile";
 
 	unless ( (-e $sourceFile) ) {
 		if ( (-e "$sourceFile.gz") ) {
@@ -333,7 +468,7 @@ my ( $dir, $file, $cacheDir, $cacheFileIn, $cacheFileOut, $sourceFile, $ext );
 			$sourceFile .= ".gz";
 		}
 		else {
-			return undef;
+			return;
 		}
 	}
 
@@ -342,24 +477,25 @@ my ( $dir, $file, $cacheDir, $cacheFileIn, $cacheFileOut, $sourceFile, $ext );
 	#
 	if ( $self->{request}->{sysIn}->{sysName} eq $self->{request}->{sysOut}->{sysName} ) {
 		$self->{useSource} = 1;
-		return ( $self->{sourceFile} = $sourceFile );
+		return ( $self->{uris}->{source} = $sourceFile );
 	}
 
-	$self->{baseDomain} = "$dir" if ( $dir );
 
-	$file =~ s/\.(htm(l)?)$//oi;
-	$ext  =  $1;
-	$file =~ s/\.sera$//i;
+	$file = $self->{request}->{uri}->file_base || "index";  # no ext
+	$dir  = $self->{request}->{uri}->dir_clean;
+	$ext  = $self->{ext} = $self->{request}->{uri}->ext || "html";
 
-	$dir          =~ s/[ ()]/_/g;
-	$cacheDir     = "$FileCacheDir/$dir";
+	$file   =~ s/\.sera$//i;
+
+	$cacheDir     = "$self->{request}->{config}->{uris}->{cachelocal}";
+	$cacheDir    .= "/$dir" if ( $dir );
 	$cacheFileIn  = "$cacheDir/$file.$self->{fileSysOut}.$ext";
 	$cacheFileOut =  ( $diskFile !~ /\/Frames/ )
 	              ? "$cacheDir/$file.$self->{fileSysOut}.$ext.gz"
 	              :  $cacheFileIn
 	              ;
 
-	$self->{cacheFileIn} = $cacheFileIn;
+	$self->{uris}->{cachein} = $cacheFileIn;
 
 	unlink ( $cacheFileOut ) if ( $self->{request}->{'no-cache'} );
 
@@ -367,8 +503,8 @@ my ( $dir, $file, $cacheDir, $cacheFileIn, $cacheFileOut, $sourceFile, $ext );
 		#
 		#  Check Date Here
 		#
-		if ( $checkFileDates
-			 && ( (stat ( $cacheFileOut ))[9] < (stat ( $sourceFile ))[9] ) )
+		if ( $self->{request}->{config}->{checkfiledates}
+		     && ( (stat ( $cacheFileOut ))[9] < (stat ( $sourceFile ))[9] ) )
 	 	{
 			#
 			#  if old delete and get New
@@ -378,26 +514,37 @@ my ( $dir, $file, $cacheDir, $cacheFileIn, $cacheFileOut, $sourceFile, $ext );
 			#
 			#  is sourceFile in SERA?
 			#
-			$sourceFile = LiveGeez::CacheAsSERA::HTML ( $self, $sourceFile )
-				unless ( $self->{request}->{sysIn}->{sysName} eq "sera" );
+		#	$sourceFile = LiveGeez::CacheAsSERA::HTML ( $self, $sourceFile )
+		#		unless ( $self->{request}->{sysIn}->{sysName} eq "sera" );
+			$sourceFile = ( $self->{request}->{sysIn}->{sysName} eq "sera" )
+			              ? LiveGeez::CacheAsSERA::Local ( $self, $sourceFile )
+			              : LiveGeez::CacheAsSERA::Remote ( $self, $sourceFile )
+			                unless ( $self->{request}->{cache_check_override} )
+			            ;
 		}
 		else {
 			$sourceFile = $cacheFileOut;
 			$self->{isCached} = "true";
 			$self->{isZipped} = "true" if ( $cacheFileOut ne $cacheFileIn );
 		}
-		$self->{cacheFileOut} = $cacheFileOut;
+		$self->{uris}->{cacheout} = $cacheFileOut;
 	}
 	else {
 		MakeCacheDir ($cacheDir, $FileCacheDir);
 		#
 		#  is sourceFile in SERA?
 		#
-		$sourceFile = LiveGeez::CacheAsSERA::HTML ( $self, $sourceFile )
-			unless ( $self->{request}->{sysIn}->{sysName} eq "sera" );
+		# $sourceFile = LiveGeez::CacheAsSERA::HTML ( $self, $sourceFile )
+		# 	unless ( $self->{request}->{sysIn}->{sysName} eq "sera" );
+		$sourceFile = ( $self->{request}->{sysIn}->{sysName} eq "sera" )
+		              ? LiveGeez::CacheAsSERA::Local ( $self, $sourceFile )
+		              : LiveGeez::CacheAsSERA::Remote ( $self, $sourceFile )
+		                unless ( $self->{request}->{cache_check_override} )
+		            ;
+		$self->{request}->{sysIn} = $LiveGeez::CacheAsSERA::s;
 	}
 
-	$self->{sourceFile} = $sourceFile;
+	$self->{uris}->{source} = $sourceFile;
 
 }
 
@@ -413,44 +560,30 @@ my ( $dir, $file, $cacheDir, $cacheFileIn, $cacheFileOut, $sourceFile, $ext );
 sub CheckCacheURL
 {
 my $self = shift;
-my $URL  = $self->{request}->{file};
-my ( $proto, $url, $dir, $file, $cacheDir, $cacheFileIn, $cacheFileOut, $ext, $baseURL );
+my ( $dir, $file, $cacheDir, $cacheFileIn, $cacheFileOut, $ext );
+
+# use LWP::Simple;  # presumably this load only once and only if we reach here
 
 
-	($proto,$url) = split ( m#//#, $URL, 2 );
-	($url,  $dir) = split ( m#/#, $url, 2 );
-	($file, $dir) = split ( m#/#, reverse($dir), 2 );
+	$file = $self->{request}->{uri}->file_clean || "index.html";
+	$dir  = $self->{request}->{uri}->dir_clean;
+	$ext  = $self->{ext} = $self->{request}->{uri}->ext || "html";
 
-	chop ($proto);
-	$dir = reverse($dir);
-	$url = lc($url);
-	$baseURL = "$proto://$url/$dir/";
-	$self->{baseDomain}  = "$proto://$url/";
-	$self->{baseDomain} .= "$1" if ( $dir =~ /^(~[^\/]+)/ );
+	$self->{uri_authority} = $self->{request}->{uri}->scheme_authority;
+	$self->{doc_root}      = $self->{request}->{uri}->doc_root . "/";
 
-	if ( $file ) {
-		$file = reverse($file);
-		$file =~ s/[ ()]/_/g;
-	}
-	else {
-		# we were passed a directory reference
-		# so for caching purposes we'll use "index.html"
-		$file = "index.html";
-	}
-
-	$dir        =~ s/[ ()]/_/g;
-	$cacheDir   = "$URLCacheDir/$url/$dir";
+	$cacheDir   = "$self->{request}->{config}->{uris}->{cacheremote}/".$self->{request}->{uri}->host.$dir;
 	$sourceFile = "$cacheDir/$file";
 
-	$file       =~ s/\.(htm(l)?)$//oi;
-	$ext        =  $1;
-	$file       =~ s/\.sera$//i;
 
-	$cacheFileIn         = "$cacheDir/$file.$self->{fileSysOut}.$ext";
-	$cacheFileOut        = "$cacheDir/$file.$self->{fileSysOut}.$ext.gz";
+	$file = $self->{request}->{uri}->file_base || "index";  # no terminal ext
 
-	$self->{baseURL}     = $baseURL;
-	$self->{cacheFileIn} = $cacheFileIn;
+	$file   =~ s/\.sera$//i;
+
+	$cacheFileIn  = "$cacheDir/$file.$self->{fileSysOut}.$ext";
+	$cacheFileOut = $cacheFileIn.".gz";
+
+	$self->{uris}->{cachein} = $cacheFileIn;
 
 	unlink <$cacheDir/$file*>
 		if ( $self->{request}->{'no-cache'} );
@@ -460,12 +593,12 @@ my ( $proto, $url, $dir, $file, $cacheDir, $cacheFileIn, $cacheFileOut, $ext, $b
 	# If the file is cached we will compare the file date against the
 	# version on the server
 	#
-	if (-e $cacheFileOut) {
+	if (-e $sourceFile) {
 		# my ($mtime) = (stat($cacheFileOut))[9];
 		# my ($cacheDate) = HTTP::Date::time2str($mtime);
 
-		my $rc = mirror ($URL, $sourceFile);
-		if ( $rc == RC_OK ) {
+		my $rc = LWP::Simple::mirror ($self->{request}->{file}, $sourceFile);
+		if ( $rc == $RC_OK ) {
 			# Clear cache
 			my $output = unlink <$cacheDir/$file*gz>;
 			
@@ -481,44 +614,56 @@ my ( $proto, $url, $dir, $file, $cacheDir, $cacheFileIn, $cacheFileOut, $ext, $b
 			#
 			#  is sourceFile in SERA?
 			#
-			$sourceFile = LiveGeez::CacheAsSERA::HTML ( $self, $sourceFile )
-				unless ( $self->{request}->{sysIn}->{sysName} eq "sera" );
+			# $sourceFile = LiveGeez::CacheAsSERA::HTML ( $self, $sourceFile );
+				# unless ( $self->{request}->{sysIn} && ($self->{request}->{sysIn}->{sysName} eq "sera") );
 
-			return ( $self->{sourceFile} = $sourceFile );
+			# return ( $self->{uris}->{source} = $sourceFile );
 		}
-		elsif ( $rc != RC_NOT_MODIFIED ) {
-			return undef;
-		}
+		# elsif ( $rc != $RC_NOT_MODIFIED ) {
+		# 	return;
+		# }
+		# continue and use present version
 
 		# Use present cache file, we assume a 304
-		$self->{isZipped} = $self->{isCached} = "true";
-		$self->{cacheFileOut} = $sourceFile = $cacheFileOut;
+		if ( -e $cacheFileOut ) {
+			$self->{isZipped} = $self->{isCached} = "true";
+			$self->{uris}->{cacheout} = $sourceFile = $cacheFileOut;
+		}
+		else {
+			$sourceFile = LiveGeez::CacheAsSERA::Remote ( $self, $sourceFile );
+		}
 	
 	}
 	else {
-		use POSIX qw(strftime);
+		# use POSIX qw(strftime);
 
-		my $tempFile = "$URLCacheDir/tmp."
-		             . strftime ( '%m%d%H%M%S', localtime(time) )
+		my $tempFile = "$self->{request}->{config}->{uris}->{cacheremote}/tmp."
+		             . POSIX::strftime ( '%m%d%H%M%S', localtime(time) )
 		             . "."
 		             # . myRand
 			     . rand
 		             ;
-		if ( mirror ($URL, $tempFile) == RC_OK ) {
-			MakeCacheDir ($cacheDir, $URLCacheDir);
-			rename ( $tempFile, $sourceFile );
+		if ( LWP::Simple::mirror ($self->{request}->{file}, $tempFile) == $RC_OK ) {
+			if ( $self->{request}->{uri}->iscgi ) {
+				$self->{isCGI} = 1;
+				$self->{uris}->{tmpFile} = $sourceFile = $tempFile;
+			}
+			else {
+				MakeCacheDir ($cacheDir, $URLCacheDir);
+				rename ( $tempFile, $sourceFile );
+			}
 			#
 			#  is sourceFile in SERA?
 			#
-			$sourceFile = LiveGeez::CacheAsSERA::HTML ( $self, $sourceFile )
-				unless ( $self->{request}->{sysIn}->{sysName} eq "sera" );
+			$sourceFile = LiveGeez::CacheAsSERA::Remote ( $self, $sourceFile );
+				# unless ( $self->{request}->{sysIn} && ($self->{request}->{sysIn}->{sysName} eq "sera") ); 
 		}
 		else {
-			return undef;
+			return;
 		}
 	}
 
-	$self->{sourceFile} = $sourceFile;
+	$self->{uris}->{source} = $sourceFile;
 
 }
 
@@ -535,13 +680,16 @@ my ( $proto, $url, $dir, $file, $cacheDir, $cacheFileIn, $cacheFileOut, $ext, $b
 #------------------------------------------------------------------------------#
 sub MakeCacheDir
 {
-my ($cacheDir, $refDir) = @_;  # always starts with "/";
+# my ($cacheDir, $refDir) = @_;  # always starts with "/";
 
+	File::Path::mkpath $_[0], 0, 0755 unless -d $_[0];
+
+	return;
 	unless ( (-e $cacheDir) ) {
-		$cacheDir    =~ s/^$webRoot//;
+		$cacheDir    =~ s/^$self->{request}->{config}->{uris}->{webroot}//;
 		$cacheDir    =~ s|^/||;
 
-		my $fullPath = $webRoot;
+		my $fullPath = $self->{request}->{config}->{uris}->{webroot};
 		my (@dirs) = split ( /\//, $cacheDir );
 
 		foreach my $dir ( @dirs ) {
@@ -567,26 +715,17 @@ my ($cacheDir, $refDir) = @_;  # always starts with "/";
 sub DisplayFromCache
 {
 my $self = shift;
-my $cacheFile = $self->{cacheFileOut};
+my $cacheFile = $self->{uris}->{cacheout};
 
 
-	if ( $ENV{HTTP_ACCEPT_ENCODING} =~ "gzip" 
-	     && $ENV{HTTP_USER_AGENT} !~ "MSIE" ) {
-	     	$self->{request}->{'x-gzip'} = 1;
-		open ( FILE, "$cacheFile" ) || $self->{request}->DieCgi
+	my $fileStream 
+	= ( ( $self->{isZipped} && $self->{request}->{'x-gzip'} ) || !$self->{isZipped} )
+	  ? $cacheFile
+	  : "gzip -d --stdout $cacheFile |"
+	;
+
+	open ( FILE, "$fileStream" ) || $self->{request}->DieCgi
 		 ( "!: Could Not Open Cached File: $cacheFile!\n" );
-	}
-	else {
-		my $fileStream 
-		= ( ( $self->{isZipped} && $self->{request}->{'x-gzip'}) || !$self->{isZipped} )
-		  ? "$cacheFile"
-		  : "gzip -d --stdout $cacheFile |"
-		;
-
-		open ( FILE, "$fileStream" ) || $self->{request}->DieCgi
-			 ( "!: Could Not Open Cached File: $cacheFile!\n" );
-
-	}
 
 	$self->{request}->HeaderPrint;
 
@@ -594,7 +733,65 @@ my $cacheFile = $self->{cacheFileOut};
 
 	close (FILE);
 
-     	$self->{request}->{'x-gzip'} = 0;
+}
+
+
+#------------------------------------------------------------------------------#
+#
+# "DisplayFromCache"
+# 
+#	Does just as the name implies.  The "cacheFileOut" string must be set
+#	before the method is called.  The file is printed to STDOUT.  Generally
+#   cached files are gzipped, DisplayFromCache will gunzip as needed.
+#
+#------------------------------------------------------------------------------#
+sub DisplayFromCacheX
+{
+my $self = shift;
+my $cacheFile = $self->{uris}->{cacheout};
+
+
+	$self->{request}->HeaderPrint;
+
+	# print STDERR "ZIP[1]: $self->{request}->{'x-gzip'}\n";
+
+	if ( $self->{request}->{apache} ) {
+		$self->{request}->HeaderPrint;
+		if ( $self->{request}->{'x-gzip'} ) {
+			my $fh = Apache::File->new( $cacheFile );
+			# print STDERR "Printing Zipped: $cacheFile\n";
+			# local $/;
+			# print Compress::Zlib::memGzip( <$fh> );
+			$self->{request}->{apache}->send_fd($fh);
+		}
+		else {
+			my $fileStream 
+			= ( ( $self->{isZipped} && $self->{request}->{'x-gzip'}) || !$self->{isZipped} )
+			  ? "$cacheFile"
+			  : "gzip -d --stdout $cacheFile |"
+			;
+			my $fh = Apache::File->new( $fileStream );
+			$self->{request}->{apache}->send_fd($fh);
+		}
+	}
+	else {
+		my $fileStream 
+		= ( ( $self->{isZipped} && $self->{request}->{'x-gzip'}) || !$self->{isZipped} )
+		  ? $cacheFile
+		  : "gzip -d --stdout $cacheFile |"
+		;
+
+		open ( FILE, "$fileStream" ) || $self->{request}->DieCgi
+			 ( "!: Could Not Open Cached File: $cacheFile!\n" );
+
+
+		$self->{request}->HeaderPrint;
+
+		$self->{request}->print ( <FILE> );
+
+		close (FILE);
+	}
+
 }
 
 
@@ -610,7 +807,7 @@ my $cacheFile = $self->{cacheFileOut};
 sub ReadFromCache
 {
 my $self = shift;
-my $cacheFile = $self->{cacheFileOut};
+my $cacheFile = $self->{uris}->{cacheout};
 my $fileStream;
 
 
@@ -618,8 +815,10 @@ my $fileStream;
 
 	open (FILE, "$fileStream") || $self->{request}->DieCgi
 	     ( "!: Could Not Open Cached File: $cacheFile!\n" );
-	@gFile = <FILE>;
-	$self->{htmlData} = join ( "", @gFile );
+	# @gFile = <FILE>;
+	# $self->{htmlData} = join ( "", @gFile );
+	local $/ = undef;
+	$self->{htmlData} = <FILE>;
 	close (FILE);
 
 }
@@ -628,10 +827,10 @@ my $fileStream;
 sub SaveToCache
 {
 my $self = shift;
-my $cacheFile = $self->{cacheFileIn};
+my $cacheFile = $self->{uris}->{cachein};
 
 
-	if ( $useApache ) {
+	if ( $self->{request}->{apache} ) {
 		$self->{request}->{apache}->print ( $self->{htmlData} );
 		open (CACHEFILE, ">$cacheFile") 
 		|| $self->{request}->DieCgi ( "!: Can't Open $cacheFile!\n" );

@@ -1,28 +1,51 @@
 package LiveGeez::Cgi;
 use base qw(Exporter);
 
+
 BEGIN
 {
 	use strict;
-	use vars qw($VERSION $EMAILMESSAGE $ZOBEL_VERSION);
+	use vars qw($VERSION $EMAILMESSAGE $ZOBEL_VERSION %URIS);
 
-	$VERSION = '0.14';
-	$ZOBEL_VERSION = '0.14';
+	$VERSION = '0.20';
+	$ZOBEL_VERSION = '0.20';
 
 	require 5.000;
 
-	use LiveGeez::Local;
-	unless ( $useApache ) {
-		require "$cgiDir/cgi-lib.pl";
-	}
-	else {
-		use Apache;
-	}
-
 	$EMAILMESSAGE =<<END;
 <p>If you think that you have reached this message in error please report
-to <a href="mailto:$adminEmail?Subject=%%subject%%">$adminEmail</a></p>
+to <a href="mailto:%%ADMINEMAIL%%?Subject=%%subject%%">%%ADMINEMAIL%%</a></p>
 END
+
+	use LiveGeez::Config qw(%URIS);
+
+	$| = 1;
+}
+
+
+sub import
+{
+shift;
+
+
+	if ( @_ && $_[0]->isa ( "LiveGeez::Config" ) ) {
+		if ( $_[0]->{useapache} ) {
+			use Apache;
+			use Apache::Constants qw(:common);
+			use Apache::Cookie;
+		}
+		else {
+			require "$_[0]->{uris}->{cgidir}/cgi-lib.pl";
+		}
+	}
+	else {
+	#
+	# we can't reach here any more
+		# assume local
+		#
+		require "$URIS{cgidir}/cgi-lib.pl";
+	}
+
 }
 
 
@@ -44,11 +67,16 @@ my $self = shift;
 sub TopHtml
 {
 my ( $self, $title, $bgcolor ) = @_;
-$bgcolor ||= $defaultBGColor;
+$bgcolor ||= $self->{config}->{bgcolor};
 
-  return <<END_OF_TEXT;
+my $head = ( $self->{sysOut}->{xfer} eq "utf8" )
+           ?  "<head>\n<META HTTP-EQUIV=\"content-type\" content=\"text-html; charset=utf-8\">"
+	   :  "<head>"
+	 ;
+
+<<END_OF_TEXT;
 <html>
-<head>
+$head
 <title>$title</title>
 </head>
 <body BGCOLOR="$bgcolor">
@@ -72,7 +100,7 @@ my $self = shift;
 	unless ( $self->{CgiParsed} ) {
 		$self->{CgiParsed} = "true";
 		if ( $self->{apache} ) {
-			%{$_[0]} = $self->{apache}->args;
+			%{$_[0]} = ( $self->{apache}->method eq 'POST' ) ? $self->{apache}->content : $self->{apache}->args;
 		}
 		else {
 			ReadParse ( $_[0] );
@@ -95,13 +123,14 @@ my $self = shift;
 			$self->{apache}->send_http_header;
 		}
 		else {
-			print "Content-type: text/html\n";
+			my $header = "Content-type: text/html\n";
 			if ( $self->{'x-gzip'} ) {
-				print "Content-Encoding:  x-gzip\n\n";
+				$header .= "Content-Encoding:  x-gzip\n\n";
 			}
 			else {
-				print "\n";
+				$header .= "\n";
 			}
+			print $header;
 		}
 	}
 }
@@ -120,11 +149,9 @@ my $self = shift;
 	else {
 		CgiError ( $_[0] );
 	}
-	$self->print ( "<hr><p align=right><a href=\"http://libeth.netpedia.net/Zobel/\"><i>Zobel $ZOBEL_VERSION</i></a></p>" );
+	$self->print ( "<hr><p align=right><a href=\"http://libeth.sourceforge.net/Zobel/\"><i>Zobel $ZOBEL_VERSION</i></a></p>" );
 	if ( $self->{apache} ) {
-		# $self->{apache}->exit(0); 
-		# Apache::exit(DONE);
-		$self->{apache}->exit(); 
+		$self->{apache}->exit(OK); 
 	}
 	else {
 		exit (0);
@@ -137,6 +164,7 @@ sub DieCgiWithEMail
 {
 	my $message = $EMAILMESSAGE;
 	$message =~ s/%%subject%%/$_[2]/;
+	$message =~ s/%%ADMINEMAIL%%/$_[0]->{config}->{adminemail}/g;
 	DieCgi ( $_[0], $_[1].$message );
 }
 
@@ -145,39 +173,87 @@ sub DieCgiWithEMail
 sub ParseCookie
 {
 my $self = shift;
-# cookies are seperated by a semicolon and a space
-my ( @rawCookies ) = split ( /; /, $ENV{'HTTP_COOKIE'} );
+
+	return 1 if ( $self->{cookieParsed} );
 
 
-	foreach ( @rawCookies ) {
-    	if ( /prefs/ ) {
- 		($prefs, $key1, $val1, $key2, $val2, $key3, $val3, $key4, $val4) = split ( /[=&]/, $_ );
-    	   	$self->{"cookie-$key1"} = $val1;                      # system
-    	   	$self->{"cookie-$key2"} = $val2;                      # frames
-    	   	$self->{"cookie-$key3"} = ($key3) ? $val3 : "false";  # 7-bit
-    	   	$self->{"cookie-$key4"} = ($key4) ? $val4 : $defaultLang;  # lang
-       	}
-	} 
+	my $v;
+	if ( $self->{apache} ) {
+		my %c = Apache::Cookie->parse;
+		return 1 unless ( $c{prefs} );
+		$v = $c{prefs}->value;
+	}
+	else {
+		# cookies are seperated by a semicolon and a space
+		return 1 unless ( $ENV{'HTTP_COOKIE'} =~ /prefs/ );
+		my ( @rawCookies ) = split ( /; /, $ENV{'HTTP_COOKIE'} );
+		foreach ( @rawCookies ) {
+	    		if ( /prefs/ ) {
+				s/prefs\s+//;
+				$v = $_;
+				# print STDERR "Cookie: $v\n";
+			}
+		}
+	}
 
-	$self->{cookiedParsed} = "true";
+	$v =~ s/=/,/g;
+	$v =~ s/,/","/g;
+	$v =~ s/^/"/g;
+	$v =~ s/$/"/g;
+
+	my %hash;
+	eval ( "%hash = ($v);" ) ;
+
+	$self->{'cookie-geezsys'}= $hash{geezsys};
+	$self->{'cookie-frames'} = $hash{frames};
+	$self->{'cookie-7-bit'}  = ( $hash{'7-bit'} ) ? $hash{'7-bit'} : "false";
+	$self->{'cookie-lang'}   = ( $hash{lang} ) ? $hash{lang} : $self->{config}->{lang};
+	$self->{cookieParsed}    = 1;
+
 	1;
 } 
 
  
 sub SetCookie
 {
-my ( $self, $encoding, $frames, $bit7, $lang ) = @_;
-my $path;
+my $self = shift;
 
+	return if ( $self->{cookieset} );
 
-	$frames  = "no"         unless ( $frames );
-	$bit7    = "false"      unless ( $bit7 );
-	$lang    = $defaultLang unless ( $lang );
+	my $frames  = ( $self->{frames}            ) ? $self->{frames}            : "no";
+	my $bit7    = ( $self->{sysOut}->{'7-bit'} ) ? $self->{sysOut}->{'7-bit'} : "false";
+	my $lang    = ( $self->{sysOut}->{lang}    ) ? $self->{sysOut}->{lang}    : $self->{config}->{lang};
  
-	$prefs   = "geezsys=$encoding&frames=$frames&7-bit=$bit7&lang=$lang";
-	$path    = "/"; 
+ 	my $sysPragmaOut  =   $self->{sysOut}->{sysName};
+ 	$sysPragmaOut    .= ".$self->{WebFont}" if ( $self->{WebFont} );
+	#
+	# return if nothing has changed
+	#
+ 	return	if ( exists ( $self->{'cookie-geezsys'} )
+		&& ( $self->{'cookie-geezsys'} eq $sysPragmaOut )             
+		&& ( $self->{'cookie-7-bit'}   eq $bit7         )
+		&& ( $self->{'cookie-lang'}    eq $lang         )
+		&& ( $self->{'cookie-frames'}  eq $frames       )
+		);
 
-	"Set-Cookie: prefs=$prefs; expires=$cookieExpires; path=$path; domain=$cookieDomain\n";
+	$prefs = "geezsys=$sysPragmaOut,frames=$frames,7-bit=$bit7,lang=$lang";
+
+	if ( $self->{config}->{useapache} ) {
+		my $cookie = new Apache::Cookie (
+			$self->{apache},
+			-name    => 'prefs',
+			-value   => $prefs,
+			-expires => $self->{config}->{cookieexpires},
+			-path    => "/",
+			-domain  => $self->{config}->{cookiedomain},
+		);
+		$cookie->bake;
+	}
+	else {
+		print "Set-Cookie: prefs=$prefs; expires=$self->{config}->{cookieexpires}; path=/; domain=$self->{config}->{cookiedomain}\n";
+	}
+
+	$self->{cookieset} = 1;
 
 }
 #########################################################
@@ -192,7 +268,7 @@ __END__
 
 =head1 NAME
 
-LiveGeez::Request - Parse a LiveGe'ez CGI Query
+LiveGeez::Cgi - Parse a LiveGe'ez CGI Query
 
 =head1 SYNOPSIS
 

@@ -1,61 +1,62 @@
 package LiveGeez::Local;
+use base qw(Exporter);
 
 BEGIN
 {
 	use strict;
-	use vars qw($VERSION @ISA @EXPORT $webRoot $cgiDir $scriptBase $scriptURL
-	$URLCacheDir $FileCacheDir $defaultLang $defaultSysIn $defaultSysOut $processURLs
-	$checkFileDates $iPath $defaultBGColor $cookieDomain $cookieExpires $useApache
-	$useCGI_PM $adminEmail);
+	use vars qw($VERSION @EXPORT %URIS
+	$DEFAULTLANG $DEFAULTSYSIN $DEFAULTSYSOUT $PROCESSURLS $CHECKFILEDATES
+	$DEFAULTBGCOLOR $COOKIEDOMAIN $COOKIEEXPIRES $USEAPACHE $USEFRAMES
+	$USECGI_PM $ADMINEMAIL);
 
-	$VERSION = '0.14';
+	$VERSION = '0.20';
 
 	require 5.000;
 	require Exporter;
 
-	@ISA = qw(Exporter);
 	@EXPORT = qw(
-			$webRoot
-			$cgiDir
-			$scriptBase
-			$scriptURL
-			$URLCacheDir
-			$FileCacheDir
-			$defaultLang
-			$defaultSysIn
-			$defaultSysOut
-			$processURLs
-			$checkFileDates
-			$iPath
-			$defaultBGColor
-			$cookieDomain
-			$cookieExpires
-			$useApache
-			$useCGI_PM
-			$adminEmail
-			);
+		%URIS
+		$DEFAULTLANG
+		$DEFAULTSYSIN
+		$DEFAULTSYSOUT
+		$PROCESSURLS
+		$CHECKFILEDATES
+		$DEFAULTBGCOLOR
+		$COOKIEDOMAIN
+		$COOKIEEXPIRES
+		$USEAPACHE
+		$USECGI_PM
+		$USEFRAMES
+		$ADMINEMAIL
+	);
 
 
-	$webRoot        = "/usr/local/apache/htdocs";      # where you keep HTML files
-	$cgiDir         = "/usr/local/apache/cgi-bin";  # where you keep CGI files
-	$scriptURL      = "http://zobel.geez.org:8080/";  # Zobel URL
-	$scriptBase     = "/Z.pl";    # Zobel from the server root
-	$URLCacheDir    = "/usr/local/apache/htdocs/cache";  # where to cache URL documents
-	$FileCacheDir   = "/usr/local/apache/htdocs/cache";  # where to cache local files
-	$defaultLang    = "amh";      # assumed preferred language
-	$defaultSysIn   = "sera";     # assume files are in this system
-	$defaultSysOut  = "GFZemen";  # default font conversion
-	$processURLs    = 1;          # should we let people use our bandwidth?
-	$checkFileDates = 1;        # should we compare local file dates with cache?
-	$iPath          = "/f";       # where we keep fidel images, if any
-	$defaultBGColor	= "#f0f0f0";  # default background color of pages
-	$cookieDomain	= ".geez.org";
-	$cookieExpires	= "Thu, 11-Nov-01 00:00:00 GMT";
-	$useApache      = 1;
-	$useCGI_PM      = 0;
-	$adminEmail     = "support\@geez.org";
-	# $noCacheing     = 1;
-	# $adminPassword  = "snork";
+	%URIS	            =(
+		webroot     => "/usr/local/apache/htdocs",	        # where you keep HTML files
+		cgidir      => "/usr/local/apache/cgi-bin",		# where you keep CGI files
+		zauthority  => "http://zobel.geez.org:8080",			# Zobel URL
+		zpath       => "/",					# Zobel from the server root
+		cacheremote => "/usr/local/apache/htdocs/cache",	# where to cache URL documents
+		cachelocal  => "/usr/local/apache/htdocs/cache",	# where to cache local files
+		ipath       => "/f",					# where we keep fidel images, if any
+	);
+	$URIS{zuri}     = $URIS{zauthority}.$URIS{zpath};
+	$URIS{file_query} = $URIS{zuri}."?sys=LIVEGEEZSYS\&file=";
+	$DEFAULTLANG    = "amh";      # assumed preferred language
+	$DEFAULTSYSIN   = "sera";     # assume files are in this system
+	$DEFAULTSYSOUT  = "GFZemen";  # default font conversion
+	$PROCESSURLS    = 1;          # should we let people use our bandwidth?
+	$CHECKFILEDATES = 1;          # should we compare local file dates with cache?
+	$DEFAULTBGCOLOR	= "#f0f0f0";  # default background color of pages
+	$COOKIEDOMAIN	= ".geez.org";
+	$COOKIEEXPIRES	= "Thu, 11-Nov-01 00:00:00 GMT";
+	$USEAPACHE      = 1;
+	$USECGI_PM      = 0;
+	$USEFRAMES      = "false";
+	$ADMINEMAIL     = "support\@geez.org";
+
+	# $NOCACHEING     = 1;
+	# $ADMINPASSWORD  = "snork";
 
 $| = 1;  # always a good idea!
 }

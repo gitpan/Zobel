@@ -6,9 +6,9 @@ use base qw(Exporter);
 BEGIN
 {
 	use strict;
-	use vars qw($VERSION @EXPORT $fortuneDir);
+	use vars qw($VERSION @EXPORT $fortuneDir $u);
 
-	$VERSION = '0.14';
+	$VERSION = '0.20';
 
 	require 5.000;
 
@@ -20,17 +20,17 @@ BEGIN
 		ProcessString
 		AboutLiveGeez
 	);
-		# ProcessFile  this no longer exists
 
 	require LiveGeez::File;
 	require Convert::Ethiopic;
-	require Convert::Ethiopic::Time;
-	require Convert::Ethiopic::Cstocs;
+	require Convert::Ethiopic::Date;
+	require Convert::Ethiopic::String;
 	use Convert::Ethiopic::System qw($unicode $utf8);
 	require HTML::Entities;
 
-	$fortuneDir       = "$Local::webRoot/fortunes/";
+	$fortuneDir = "/path/to/fortunes";
 
+	$u = new Convert::Ethiopic::System ( "UTF8" );
 }
 
 
@@ -54,26 +54,20 @@ my $request = shift;
 	open (FORTUNE, "fortune $fortuneDir |");
 	my $fortune = Convert::Ethiopic::ConvertEthiopicFileToString (
 		\*FORTUNE,
-		$unicode,
-		$utf8,
-		$request->{sysOut}->{sysNum},
-		$request->{sysOut}->{xferNum},
-		$request->{sysOut}->{fontNum},
-		$request->{sysOut}->{langNum},
-		$request->{sysOut}->{iPath},
-		$request->{sysOut}->{options}
+               $u,
+               $request->{sysOut},
 	);
 	close (FORTUNE);
 
 	$fortune =~ s/\n/<br>$&/g;
 
 	$fortune = HTML::Entities::encode($fortune, "\200-\377")
-			   if ( $request->{sysOut}->{'7-bit'} );
+	           if ( $request->{sysOut}->{'7-bit'} eq "true" );
 
 	$fortune = $request->TopHtml ( "Your Ethiopian Fortune!" )
-			 . $fortune
-			 . $request->BotHtml 
-			   if ( $request->{phrase} );
+	         . $fortune
+	         . $request->BotHtml 
+	           if ( $request->{phrase} );
 
 	$fortune;
 
@@ -84,9 +78,9 @@ my $request = shift;
 #
 # "ProcessNumber"
 #
-#   Service for numeral conversion between Arabic and Ethiopic systems.
+#    Service for numeral conversion between Arabic and Ethiopic systems.
 #	
-#	"phrase" pragma is checked to return response as complete HTML document. 
+#    "phrase" pragma is checked to return response as complete HTML document. 
 #
 #------------------------------------------------------------------------------#
 sub ProcessNumber
@@ -94,13 +88,19 @@ sub ProcessNumber
 my $request = shift;
 
 
-	my $eNumber = Convert::Ethiopic::Cstocs::EthiopicNumber ( $request );
+	my $uNumber = Convert::Ethiopic::Number->new ( $request->{number} )->convert;
 
-	$eNumber = $request->TopHtml ( "Converting $request->{number} into Ethiopic..." )
-			 . "$request->{number} is "
-			 . "$eNumber\n"
-			 . $request->BotHtml
-			   if ( $request->{phrase} );
+	my $eNumber = Convert::Ethiopic::String->new (
+	 	      $uNumber,
+	 	      $u,
+	 	      $request->{sysOut},
+	)->convert ( 1 );
+
+	$eNumber    = $request->TopHtml ( "Converting $request->{number} into Ethiopic..." )
+	            . "$request->{number} is "
+	            . "$eNumber\n"
+	            . $request->BotHtml
+	              if ( $request->{phrase} );
 
 	$eNumber;
 
@@ -112,18 +112,11 @@ sub ProcessString
 my $request = shift;
 
 
-	my  $eString = Convert::Ethiopic::ConvertEthiopicString (
-		$request->{string},
-		$request->{sysIn}->{sysNum},
-		$request->{sysIn}->{xferNum},
-		$request->{sysOut}->{sysNum},
-		$request->{sysOut}->{xferNum},
-		$request->{sysOut}->{fontNum},
-		$request->{sysOut}->{langNum},
-		$request->{sysOut}->{iPath},
-		$request->{sysOut}->{options},
-		1       #  closing
-	);
+	my $eString = Convert::Ethiopic::String->new (
+	 	      $request->{string},
+	 	      $request->{sysIn},
+	 	      $request->{sysOut},
+	)->convert ( 1 );
 
 	return $eString if ( $request->{pragma} eq "plain-text" );
 
@@ -133,16 +126,17 @@ my $request = shift;
 	}
 
 	$eString = HTML::Entities::encode($eString, "\200-\377")
-			   if ( $request->{sysOut}->{'7-bit'} );
+	           if ( $request->{sysOut}->{'7-bit'} eq "true" );
 
-	$eString =~ s/\xa0/&nbsp;/g;  # wish HTML::Entities didn't do this..
+	$eString =~ s/\xa0/&nbsp;/g   # wish HTML::Entities didn't do this..
+	            unless ( $request->{sysOut}->{xferNum} == $utf8 );
 
 	$eString = $request->TopHtml ( "Your Ethiopic Phrase!" )
-			 . "<pre>\n"
-			 . "$eString\n"
-			 . "</pre>\n"
-			 . $request->BotHtml
-			   if ( $request->{phrase} );
+	         . "<pre>\n"
+	         . "$eString\n"
+	         . "</pre>\n"
+	         . $request->BotHtml
+	           if ( $request->{phrase} );
 
 	$eString;
 
@@ -153,9 +147,9 @@ my $request = shift;
 #
 # "AboutLiveGeez"
 #
-#	Tell the enquiring mind about the LiveGe'ez / LibEth.  This is the current
-#	default response to any "about" querry.  Later we might add extras such as
-#	AboutGFF, AboutENH, etc.
+#    Tell the enquiring mind about the LiveGe'ez / LibEth.  This is the current
+#    default response to any "about" querry.  Later we might add extras such as
+#    AboutGFF, AboutENH, etc.
 #
 #------------------------------------------------------------------------------#
 sub AboutLiveGeez
@@ -168,12 +162,12 @@ my $request = shift;
 	$request->print( <<ABOUT );
 <h1 align="center">About LiveGe'ez &amp; LibEth</h1>
 
-<p>This is the GFF implementation of the LiveGe'ez Remote Processing Protocal.  Ethiopic web service is performed through a collection of CGI scripts (Zobel v.0.12) written in Perl interfaced with the LibEth library (v. $leVersion).</p>
+<p>This is the GFF implementation of the LiveGe'ez Remote Processing Protocal.  Ethiopic web service is performed through a collection of CGI scripts (Zobel v.0.20) written in Perl interfaced with the LibEth library (v. $leVersion).</p>
 <h3>For More Information Visit:</h3>
 <ul>
-  <li> <a href="http://libeth.netpedia.net/">LibEth</a>
-  <li> <a href="http://libeth.netpedia.net/Zobel/">Zobel</a>
-  <li> <a href="http://libeth.netpedia.net/LiveGeez.html">LiveGe'ez</a>
+  <li> <a href="http://libeth.sourceforge.net/">LibEth</a>
+  <li> <a href="http://libeth.sourceforge.net/Zobel/">Zobel</a>
+  <li> <a href="http://libeth.sourceforge.net/LiveGeez.html">LiveGe'ez</a>
 </ul>
 ABOUT
 
@@ -191,134 +185,108 @@ my $returnDate;
 
 
 	#
-	# Instantiate a Date Object
+	# Instantiate new date objects
 	#
 
-	my $date = Convert::Ethiopic::Time->new ( $request );
-
-
-	#
-	# Convert from Passed Date 
-	#
-	if ( $request->{calIn} eq "ethio" ) {
-		$date->EthiopicToGregorian;
+	my ($date, $xdate, $euro, $orth );
+	if (  $request->{calIn} eq "euro" ) {
+		$euro = $date = Convert::Ethiopic::Date->new ( $request->{calIn}, $day, $month, $year );
+		$orth = $xdate = $date->convert;
 	}
-	else {  # we assume euro for now
-		$date->GregorianToEthiopic;
+	else {
+		$orth = $date = Convert::Ethiopic::Date->new ( $request->{calIn}, $day, $month, $year );
+		$euro = $xdate = $date->convert;
 	}
 
 
-	if ( $request->{'date-only'} ) {
-		return
-		( $request->{calIn} eq "ethio" )
-		  ?  "$date->{euDay},$date->{euMonth},$date->{euYear}"
-		  :  "$date->{etDay},$date->{etMonth},$date->{etYear}"
-		;
+	return "$xdate->{date},$xdate->{month},$xdate->{year}"
+		if ( $request->{'date-only'} );
 
-	}
-	elsif ( $request->{'is-holiday'} && $request->{phrase} ) {
-		$returnDate = $date->isEthiopianHoliday;
+	$orth->lang ( $request->{sysOut}->{langNum} );
+
+
+	if ( $request->{'is-holiday'} && $request->{phrase} ) {
+		$returnDate = $orth->isEthiopianHoliday;
 
 		if ( $returnDate ) {
-			my ( $Day, $Month ) = $date->getDayMonthYearDayName;
-			$phrase  = "$Day�� $Month $date->{etDay} ";
+			my ( $Day, $Month ) = $orth->getDayMonthYearDayName;
+			$phrase  = "$Day�� $Month $orth->{date} ";
 			$phrase .= ( $request->{lang} eq "amh" ) ?  "ቀን" : "መዓልቲ";
 			$phrase .= " $returnDate ";
 			$phrase .= ( $request->{lang} eq "amh" ) ? "ነው።" : "እዩ።" ;
-			$phrase  = Convert::Ethiopic::ConvertEthiopicString (
-				$phrase,
-				$unicode,
-				$utf8,
-				$request->{sysOut}->{sysNum},
-				$request->{sysOut}->{xferNum},
-				$request->{sysOut}->{fontNum},
-				$request->{sysOut}->{langNum},
-				$request->{sysOut}->{iPath},
-				$request->{sysOut}->{options},
-				1       #  closing
-			);
+			$phrase = Convert::Ethiopic::String->new (
+	 	      			$phrase,	
+			             	$u,
+					$request->{sysOut},
+			)->convert ( 1 );
 		}
 		else {
-			$phrase = "$date->{etDay}/$date->{etMonth}/$date->{etYear} is <u>not</u> a holiday.\n"
+			$phrase = "$date->{date}/$date->{month}/$date->{year} is <u>not</u> a holiday.\n"
 		}
 
-		$returnDate = $request->TopHtml ( "Checking Holidy for $date->{etDay}/$date->{etMonth}/$date->{etYear}" )
-				 	. $phrase
-				 	. $request->BotHtml
-					;
+		$returnDate = $request->TopHtml ( "Checking Holidy for $date->{year}/$date->{month}/$date->{year}" )
+		            . $phrase
+		            . $request->BotHtml
+		            ;
 	}
 	elsif ( $request->{'is-holiday'} ) {
-		$returnDate  = ( $date->isEthiopianHoliday ) ? "1" : "0" ;
+		$returnDate  = ( $orth->isEthiopianHoliday ) ? "1" : "0" ;
 		$returnDate .= "\n";
 	}
 	elsif ( !$request->{phrase} ) {
 
 		my ( $etDoW, $etMonthName, $etNumYear, $etDayName ) 
-						  = $date->getDayMonthYearDayName;
-		my ($euDoW)		  = $date->getEuroDayOfWeek;
-		my ($euMonthName) = $date->getEuroMonth;
-		my ($etDate)      = "$etDoW፣ $etMonthName $date->{etDay} $etNumYear ";
+		                  = $orth->getDayMonthYearDayName;
+		my ($euDoW)       = $euro->getEuroDayOfWeek;
+		my ($euMonthName) = $euro->getEuroMonthName;
+		my ($etDate)      = "$etDoW፣ $etMonthName $orth->{date} $etNumYear ";
 
 
-		if ( $request->{sysOut}->{LCInfo} ) {
-			$etDate = Convert::Ethiopic::ConvertEthiopicString (
-							$etDate,
-							$unicode,
-							$utf8,
-							$request->{sysOut}->{sysNum},
-							$request->{sysOut}->{xferNum},
-							$request->{sysOut}->{fontNum},
-							$request->{sysOut}->{langNum},
-							$request->{sysOut}->{iPath},
-							$request->{sysOut}->{options},
-							1       #  closing
-			);
+		#
+		# blocked for now bedause of the LCInfo difference on zendro
+		#
+		# if ( $request->{sysOut}->{LCInfo} ) {
+			my $s = new Convert::Ethiopic::String ( $etDate, $u, $request->{sysOut} );
+			             	
+			$etDate = $s->convert ( 1 );
 
-			$etDayName = Convert::Ethiopic::ConvertEthiopicString (
-							$etDayName,
-							$unicode,
-							$utf8,
-							$request->{sysOut}->{sysNum},
-							$request->{sysOut}->{xferNum},
-							$request->{sysOut}->{fontNum},
-							$request->{sysOut}->{langNum},
-							$request->{sysOut}->{iPath},
-							$request->{sysOut}->{options},
-							1       #  closing
-			);
-		}
+			$s->string ( $etDayName );
+			$etDayName = $s->convert ( 1 );
+		# }
 
 		if ( $request->{calIn} eq "euro" ) {
 			#
 			# Convert from European -> Ethiopian
 			#
 			$phrase = $request->TopHtml ( "From The European Calendar To The Ethiopian" )
-					. "<h3>$euDoW, $euMonthName $date->{euDay}, $date->{euYear}"
-					. " <i><font color=blue><u>is</u></font></i> "
-					. $etDate
-					. " <i>(<font color=red>$etDayName</font>)</i></h3>\n";
+			        . "<h3>$euDoW, $euMonthName $euro->{date}, $euro->{year}"
+			        . " <i><font color=blue><u>is</u></font></i> "
+			        . $etDate
+			        . " <i>(<font color=red>$etDayName</font>)</i></h3>\n"
+			        ;
 		}
 		else {
 			#
 			# Convert from Ethiopian -> European
 			#
 			$phrase = $request->TopHtml ( "From The Ethiopian Calendar To The European" )
-					. "<h3>"
+			        . "<h3>"
 			        . $etDate
-					. " <i><font color=blue><u>is</u></font></i> "
-					. "$euDoW, $euMonthName $date->{euDay}, $date->{euYear}"
-					. " <i>(<font color=red>$etDayName</font>)</i></h3>\n";
-		} 
+			        . " <i><font color=blue><u>is</u></font></i> "
+			        . "$euDoW, $euMonthName $euro->{date}, $euro->{year}"
+			        . " <i>(<font color=red>$etDayName</font>)</i></h3>\n"
+			        ;
+		}
 
 
-		$phrase =~ s/፣/,/ unless ( $request->{sysOut}->{LCInfo} );
+		$phrase     =~ s/፣/,/ unless ( $request->{sysOut}->{LCInfo} );
 
 		$returnDate = $phrase . $request->BotHtml;
 					 
   	}
 
 	$returnDate = HTML::Entities::encode($returnDate, "\200-\377")
-				  if ( $request->{sysOut}->{'7-bit'} );
+	              if ( $request->{sysOut}->{'7-bit'} eq "true" );
 
 
 	$returnDate;
@@ -331,6 +299,7 @@ sub ProcessRequest
 my $r = shift;
 
 
+	
 	if ( $r->{type} eq "file") {
 		# Only SERA supported at this time...
 		# $r->HeaderPrint;
@@ -339,15 +308,16 @@ my $r = shift;
 	}
 	else {
 
+	$r->{'x-gzip'} = 0;
 	$r->HeaderPrint;
 
 	if ( $r->{type} eq "calendar" ) {
 
 		# What time is it??
 		$r->DieCgi ( "Unsupported Calendar System: $r->{calIn}" )
-			if ( $r->{calIn} && $r->{calIn}   !~ /(ethio)|(euro)/ );
+		        if ( $r->{calIn} && $r->{calIn}   !~ /(ethio)|(euro)/ );
 		$r->DieCgi ( "Unsupported Calendar System: $r->{calOut}" )
-			if ( $r->{calOut} && $r->{calOut} !~ /(ethio)|(euro)/ );
+		        if ( $r->{calOut} && $r->{calOut} !~ /(ethio)|(euro)/ );
 		
     		$r->print ( ProcessDate ( $r ) );
 	}

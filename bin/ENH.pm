@@ -1,27 +1,28 @@
 package ENH;
+use base qw (Exporter);
 
-require 5.000;
-require Exporter;
+BEGIN
+{
+	use strict;
+	use vars qw( $ustr $sstr @EXPORT );
+	require 5.000;
 
-@ISA = qw(Exporter);
-@EXPORT = qw(
-			OpenFrameSet
-			ProcessFramesFile
-			ProcessNoFramesFile
-			);
-
-use LiveGeez::Local;
-use LiveGeez::File;
-use LiveGeez::Services;
-use LiveGeez::HTML;
-use Convert::Ethiopic::Time;
-
-($unicode, $utf8, $sera, $notv) = (
-	$Convert::Ethiopic::System::unicode,
-	$Convert::Ethiopic::System::utf8,
-	$Convert::Ethiopic::System::sera,
-	$Convert::Ethiopic::System::notv
+	@EXPORT = qw(
+		OpenFrameSet
+		ProcessFramesFile
+		ProcessNoFramesFile
 	);
+
+	use LiveGeez::File;
+	use LiveGeez::Services;
+	use LiveGeez::HTML;
+	use Convert::Ethiopic::Date;
+	use Convert::Ethiopic::String;
+	use Convert::Ethiopic::Number;
+
+	$ustr = new Convert::Ethiopic::String ( Convert::Ethiopic::System->new ( "UTF8" ) );
+	$sstr = new Convert::Ethiopic::String;
+}
 
 
 
@@ -30,51 +31,16 @@ sub UpdateHTMLBuffer
 my $file = shift;
 
 
-	$_ = $file->{htmlData};
+
+	$file->{htmlData} =~
+		s/<ENH date="today">/DateSomething($file->{request})/ie;
 
 
-	#------------------ For Articles
-	# s/<\/body>/"<\/body>".writeMailToUpdate($file)/ie
-	# 	if ( $file->{request}->{isArticle} );
+	$file->{htmlData} =~
+		s/<body/writeMenuHeader ($file->{request})."<body"/ie
+			if ( $file->{request}->{mainPage} eq "true" );
 
 
-	#------------------ For NoFrames Main Page
-	if ( $file->{request}->{mainPage} && $file->{request}->{frames} eq "no" ) {
-    	s/value="Frames Off"/value="Frames On"/;
-        s/action="\/NoFrames.pl"/action="\/G.pl"/;
-        s/name="frames" value="yes"/name="frames" value="YES"/;
-        s/name="frames" value="no"/name="frames" value="yes"/;
-        s/name="frames" value="YES"/name="frames" value="no"/;
-	}
-
-
-	#------------------ For All
-	s/<LIVEGEEZ date="Now">/DateSomething($file->{request})/ie;
-	s/<LIVEGEEZTITLE>/<html>\n<head>\n  <title>$file->{Title}<\/title>\n<\/head>/;
-	s/<body/writeMenuHeader ($file->{request})."<body"/ie
-		if ( $file->{request}->{mainPage} );
-
-
-	$file->{htmlData} = $_;
-}
-
-
-
-sub writePFRHeader 
-{
-my $string;
-
-
-    $string = qq(<link rel=FONTDEF src="$fontURL">
-    <!-- start Bitstream TDServer.ocx support -->
-    <script language="JavaScript"
-        SRC="http://www.truedoc.com/activex/tdserver.js">
-    </script>
-    <!-- end Bitstream TDServer.ocx support -->
-    <link>);
-
-
-	$string;
 }
 
 
@@ -82,14 +48,13 @@ my $string;
 sub writeMenuHeader 
 {
 my $request = shift;
-my $string;
 my $sys     =  ( $request->{pragma} )
             ?   "$request->{sysOut}->{sysName}&pragma=$request->{pragma}"
             :    $request->{sysOut}->{sysName}
             ;
 
-
-	$string = qq(<script language="JavaScript">
+<<HEADER;
+<script language="JavaScript">
 <!--
 var system = "$sys";
 var urlPrefix = "$request->{scriptBase}?sys=" + system + "&file=/";
@@ -108,9 +73,9 @@ function openSpecials (file) {
     window.open(urlPrefix + file, '_top');
 }
 //------------------------------------------------------------------ -->
-</script>\n\n);
+</script>
 
-$string .= qq(
+
 <SCRIPT LANGUAGE="JavaScript">
 <!-- Original:  Randy Bennett (rbennett\@thezone.net) -->
 <!-- Web Site:  http://home.thezone.net/~rbennett/utility/javahead.htm -->
@@ -172,11 +137,11 @@ document.captureEvents(Event.MOUSEMOVE);
 }
 document.onmousemove = handlerMM;
 //  End -->
-</script>\n\n);
+</script>
 
-	# $string .= writePFRHeader if ( $sys =~ "GFZemen2K" );
 
-	$string;
+HEADER
+
 }
 
 
@@ -206,81 +171,51 @@ sub DateSomething
 {
 my $r = shift;
 
+	my $eu     = new Convert::Ethiopic::Date ( "today" );
+	my $et     = $eu->convert;
+	# my $number = new Convert::Ethiopic::Number ( $et->{year}, $r->{sysOut} )->convert;
+	# my $number = new Convert::Ethiopic::Number ( $et->{year} )->convert;
+	my $n = new Convert::Ethiopic::Number ( $et->{year} );
 
-	#
-	# Instantiate a Date Object
-	#
+	$ustr->sysOut ( $r->{sysOut} );
+	$sstr->sysOut ( $r->{sysOut} );
+	my $number = $ustr->convert ( $n->convert );
 
-	$r->{calIn}   = "euro";
-	@timeNow      = localtime;
-	$r->{euDay}   = $timeNow[3];
-	$r->{euMonth} = $timeNow[4] + 1;
-	$r->{euYear}  = $timeNow[5] + 1900;
-
-	my $date      = Convert::Ethiopic::Time->new ( $r );
-
-
-	$date->GregorianToEthiopic;
-
-	my $etDayName = Convert::Ethiopic::getEthiopicDayName ( $date->{etDay}, $date->{etMonth}, 512 ); 
-	$etDayName = "<font color=red>"
-	. Convert::Ethiopic::ConvertEthiopicString (
-						$etDayName,
-						$unicode,
-						$utf8,
-						$r->{sysOut}->{sysNum},
-						$r->{sysOut}->{xferNum},
-						$r->{sysOut}->{fontNum},
-						$r->{sysOut}->{langNum},
-						$r->{sysOut}->{iPath},
-						$r->{sysOut}->{options},
-						1       #  closing
-		)
-		. "</font>"
+	my $etDayName = "<font color=red>"
+	           . $ustr->convert ( $et->getEthiopicDayName )
+	           . "</font>"
 	;
-	# $r->{string} = Convert::Ethiopic::getEthiopicDayName ( $date->{etDay}, $date->{etMonth}, 1024 ); 
-	# my $etDayName = "<font color=red>".ProcessString ( $r )."</font>";
+
+
 	$etDayName =~ s/"/\\"/g;
 
-	$string = "<script languages=\"JavaScript\">\nword = \"$etDayName\";\n</script>\n\n";
+	my $string  = "<script languages=\"JavaScript\">\nword = \"$etDayName\";\n</script>\n\n";
 
 	$string .= "<table width=640 cellpadding=0 cellspacing=0>\n  <tr><td align=left width=33%>"
-	        . $date->getEuroMonth
-	        . " $date->{euDay}, $date->{euYear}</td>\n"
-	        . "<td align=center width=34%><font color=teal size=+1><font color=teal><b>";
-
-	my $englishName  = Convert::Ethiopic::getEthiopicDayName ( $date->{etDay}, $date->{etMonth}, 0 );
-
-	$r->{string}           = "ye".$r->{sysOut}->HTMLName."  dre geS";
-	my $tempSysInNum       = $r->{sysIn}->{sysNum};
-	my $tempxferInNum      = $r->{sysIn}->{xferNum};
-	$r->{sysIn}->{sysNum}  = $sera;
-	$r->{sysIn}->{xferNum} = $notv;
-	$string               .= ProcessString ( $r )
-	                      . "</b></font></td><td align=right><a href=\"/ECalendars/ecalendars.cgi?sys=$r->{sysOut}->{sysName}\" onMouseOver=\"popLayer(); status='$englishName';return true;\" onMouseOut=\"hideLayer(-50)\"><font color=\"black\">";
-	                      # . "</b></font></td><td align=right><a href=\"/ECalendars/ecalendars.cgi?sys=$r->{sysOut}->{sysName}\" onMouseOver=\"status='$englishName'\"><font color=\"black\">";
-	                      # . "</b></font></td><td align=right><a href=\"/ECalendars/ecalendars.cgi?sys=$r->{sysOut}->{sysName}\"><font color=\"black\">";
-	$r->{sysIn}->{sysNum}  = $tempSysInNum;
-	$r->{sysIn}->{xferNum} = $tempxferInNum;
+	        . $eu->getMonthName
+	        . " $eu->{date}, $eu->{year}</td>\n"
+	        . "<td align=center width=34%><font color=teal size=+1><font color=teal><b>"
+	;
 
 
-	$r->{string}           = $date->getEthioMonth." $date->{etDay}፣ ";
-	$tempSysInNum          = $r->{sysIn}->{sysNum};
-	$tempxferInNum         = $r->{sysIn}->{xferNum};
-	$r->{sysIn}->{sysNum}  = $unicode;
-	$r->{sysIn}->{xferNum} = $utf;
-	$string               .= ProcessString ( $r );
-	$r->{sysIn}->{sysNum}  = $tempSysInNum;
-	$r->{sysIn}->{xferNum} = $tempxferInNum;
+	# my $englishName = $et->getEthiopicDayName;
+	my $englishName = "Talbot";
 
+	$string .= $sstr->convert ( "ye".$r->{sysOut}->HTMLName."  dre geS" )
+	        . "</b></font></td><td align=right><a href=\"http://enh.ethiopiaonline.net/ECalendars/ecalendars.cgi?sys=$r->{sysOut}->{sysName}\" onMouseOver=\"popLayer(); status='$englishName';return true;\" onMouseOut=\"hideLayer(-50)\"><font color=\"black\">";
 
-	$r->{number} = $date->{etYear};
-	$string .= ProcessNumber ( $r )
-			. "</font></a></td></tr></table>\n";
+	
+	$et->{langOut} = $r->{sysOut}->{lang};
+	$string .= $ustr->convert ( $et->getMonthName . " $et->{date}፣ " )
+	        .  "$number</font></a></td></tr></table>\n";
 
-
-	$string .= "<hr>Greetings. You are accessing the ENH either for the first time or with a font sytem no longer supported (such as \"Image\" and \"PFR\").  Please try installing any of the <a href=\"/info/faq.html#FreeFonts\"><font color=\"blue\">free fonts</font></a> available on the Internet."
+	my $download = ( $r->{sysOut}->{lang} eq "tir" )
+	               ? "tir-et.exe"
+		       : "amh-uni.exe"
+		       ;
+	$string .= "<hr>Welcome to the <b><i>new</i></b> ENH!  You appear to be accessing the site for the first time or your configuration has been lost.  The ENH now uses minty fresh Unicode by default.  Please try installing our <a href=\"ftp://ftp.geez.org/pub/fonts/TrueType/$download\"><font color=\"blue\">Unicode font and keyboard</font></a> or any of the <a href=\"/info/faq.html#FreeFonts\"><font color=\"blue\">free fonts</font></a> available on the Internet.  Help is here for configuring <a href=\"http://www.ethioindex.com/configunicode5.html\"><font color=\"blue\">IE 5.x</font></a> and <a href=\"http://www.ethioindex.com/configunicode4.html\"><font color=\"blue\">IE 4</font></a> for Ethiopic Unicode."
 		if ( $r->{FirstTime} );
+
 
 
 	$string;
@@ -354,10 +289,9 @@ my $FILE	   =  ( -e "$FileCacheDir/$cacheFile" && $ENV{HTTP_ACCEPT_ENCODING} =~ 
 
 sub ProcessFramesFile
 {
-my $r = shift;
 
 
-	my $f = LiveGeez::File->new ( $r );
+	my $f = LiveGeez::File->new ( $_[0] );
 
 
 	#

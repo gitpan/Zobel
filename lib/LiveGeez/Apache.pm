@@ -1,24 +1,20 @@
-package Apache::Zobel;
+package LiveGeez::Apache;
 
+BEGIN
+{
 use strict;
-use Apache::Constants qw(:common REDIRECT);
+use vars qw( $config );
+use Apache::Constants qw(:common);
 use Apache::Request;
 use Apache::URI;
 
-use LiveGeez::Local;
 use LiveGeez::Request;
 use LiveGeez::Services;
 
+require LiveGeez::Config;
+$config = new LiveGeez::Config;
 
-sub SetCookie
-{
-my $r = shift;
-
-	print $r->SetCookie ( $r->{sysOut}->{sysName}, $r->{frames}, 
-	                      $r->{sysOut}->{'7-bit'}, $r->{sysOut}->{lang} );
 }
-
-
 
 
 sub handler
@@ -40,6 +36,7 @@ sub handler
 	else {
 		my $uri  = $ap->uri;
 		$uri =~ s/^\///;
+		$uri =~ s|http:/(\w)|http://$1|;  # IE4 hoses this
 		unless ( $uri ) {
 			$ap->internal_redirect ( "/index.html" );
 			return OK;
@@ -49,14 +46,14 @@ sub handler
 	}
 
 
- 	my $r = new LiveGeez::Request ( $_[0] );
-
-	SetCookie ( $r ) if ( $r->{setCookie} eq "true" );
+ 	my $r = new LiveGeez::Request ( $config, $_[0] );
+	printf STDERR "Request Begin[$$] $r->{file}\n";
 
 	ProcessRequest ( $r ) || $r->DieCgi ( "Unrecognized Request." );
 	
 	$r = undef;
 
+	printf STDERR "Returning[$$]\n";
 	OK;
 }
 1;

@@ -1,58 +1,67 @@
 package LiveGeez::CacheAsSERA;
-use base qw(HTML::Filter Exporter);
+use base qw(HTML::Parser Exporter);
 
 BEGIN
 {
 	use strict;
-	use vars qw($VERSION @EXPORT_OK @gFile @FontStack %SystemList);
+	use vars qw($VERSION @EXPORT_OK @gFile @FontStack %SystemList %CheckTags $s $p);
 
-	$VERSION = '0.14';
+	$VERSION = '0.20';
 
-	@EXPORT_OK = qw(HTML);
+	@EXPORT_OK = qw(Local Remote);
 
-	use LiveGeez::Local;
-	use LiveGeez::Services;
+	require LiveGeez::Services;
 	require Convert::Ethiopic::System;
 	require HTML::Entities;
+	require LiveGeez::HTML;
+	require LiveGeez::Directives;
 
-	$#gFile = 100;
+	use URI;
+	$URI::ABS_REMOTE_LEADING_DOTS = 1;
+
+	# $#gFile     = 100;
 	$#FontStack = 4;
+
+	%CheckTags = (
+		font	=> 1,
+		# a	=> 1,
+		# frame	=> 1,
+		# base	=> 1,
+		# link	=> 1,
+	);
+
+	$s = new Convert::Ethiopic::System ( "sera" );
+	
+	$p = new LiveGeez::CacheAsSERA ( api_version => 3,
+		    start_h   => ['start', "self, tagname, attr, text"],
+		    end_h     => ['end', "self, tagname, text"],
+		    text_h    => ['textOut', "self, dtext, text"],
+		    default_h => [sub { push ( @gFile, @_ ) }, 'text']
+	);
 }
 
 
-sub output
+sub textOut
 {
-my $self = shift;
+my ($self, $decoded, $orig) = @_;
 
+	$_ = $orig;
 
-	$_ = shift;
-
-	if ( ${$FontStack[ $self->{fontStack} ]{sysIn}} ) {
-		NEXT:
-		if ( m|<(/)?font|i ) {  # a font tag
-			s/<font([^>]+)>/$self->UpdateFontTag($1)/oei;
-			s/<\/font>//i if ( ${$FontStack[ $self->{fontStack} ]{delete}} );
-		}
-		elsif ( m|<(/)?span|i ) {  # a span tag
-			s/<span([^>]+)>/$self->UpdateSpanTag($1)/oei;
-			s/<\/span>//i if ( ${$FontStack[ $self->{fontStack} ]{delete}} );
-		}
-		elsif ( m|<td|i ) {  # a span tag
-			s/<td([^>]+)>/$self->UpdateSpanTag($1)/oei;
-			s/<span/<td/;
-		}
-		elsif ( !/[<>]|(^(\s+)$)/o ) { # not a tag or empty space
+	# if ( /\S/so && !/^[\s\xa0]+$/o && !/^<!\[/o && !/\]>/ ) { 
+	if ( !/^[\s\xa0]+$/o && !/^<!\[/o && !/\]>/ ) { 
+	# unless ( /^[\s\xa0]+$/o ) { 
+		$_ = $decoded;
+		$decoded = &decode_more_entities(HTML::Entities::decode($decoded));
+		if ( /\S/so && $self->{fontStack} && ${$FontStack[ $self->{fontStack} ]{sysIn}} ) {
 			$self->{request}->{sysIn}  = ${$FontStack [ $self->{fontStack} ]{sysIn}};
-			$self->{request}->{string} = &decode_more_entities(HTML::Entities::decode($_));
-			$_ = "<sera>" . ProcessString ( $self->{request} ) . "</sera>";
+			# $self->{request}->{string} = &decode_more_entities(HTML::Entities::decode($_));
+			$self->{request}->{string} = $decoded;
+			# print "[ $self->{request}->{string} ]\n";
+			# print "FONT:  ${$FontStack[ $self->{fontStack} ]{sysIn}} \n";
+			$_ = "<sera>" . LiveGeez::Services::ProcessString ( $self->{request} ) . "</sera>";
 		}
-		elsif ( />./ ) {      # very rare, I hope... some software seems to
-		                      # like " ?> " to close images.  This could be
-		                      # an HTML::Parser error
-			my $trash;
-			( $trash, $_ ) = split (/>/);
-			push ( @gFile, "$trash>" );
-			goto NEXT;
+		else {
+			$_ = $orig;  # original text
 		}
 	}
 
@@ -64,74 +73,131 @@ my $self = shift;
 
 sub start
 {
-my $self = shift;
+my ($self, $tagname, $attr, $text) = @_;
+my $test = 0;
 
+	# print STDERR "TAG: $tagname | $text\n";
+	# if ( exists($CheckTags{$tagname}) || ( $test = ( $attr->{style} && $attr->{style} =~ /font-family/ ) ) ) {
+	if ( ( $test = ( $attr->{style} && $attr->{style} =~ /font-family/ ) ) || exists($CheckTags{$tagname}) ) {
 
-	if ( $_[0] eq "font" ) {
-		$FontStack[ ++$self->{fontStack} ]{sysIn} = &GetSystemOut ( $self, $_[1]{face} );
+	if ( $test || ( $tagname eq "font" && $attr->{face} ) ) { 
+		$FontStack[ ++$self->{fontStack} ]{tag} = $tagname;
+		$text = "";
+		if ( $tagname eq "font" ) {
+			$FontStack[ $self->{fontStack} ]{sysIn} = GetSystemOut ( $self, $attr->{face} );
+			if ( my $newtext = $self->UpdateFontTag($attr) ) {
+				# printf STDERR "OLD <$_[3]>   =>  NEW <$newtext>\n";
+				$FontStack[ $self->{fontStack} ]{keep} = 1;
+				$text = $newtext;
+			}
+			# $FontStack[ $self->{fontStack} ]{sysIn} = $attr->{face};
+			# print "  " x $self->{fontStack};
+			# print "OPEN <$tagname>: $attr->{face}  [$self->{fontStack}]\n";
+		}
+		elsif ( $attr->{style} && $attr->{style} =~ /font-family:\s*(['"]|(&quot;))?([\w -]+)[;'"&]?/i ) {
+			$CheckTags{$tagname} = 1;
+			$FontStack[ $self->{fontStack} ]{sysIn} = ( $3 ) ? GetSystemOut ( $self, $3 ) : undef;
+			if ( my $newtext = $self->UpdateStyle($tagname, $attr) ) {
+				if ( $newtext eq "<span>" ) {
+					$newtext = "";
+				}
+				else {
+					$FontStack[ $self->{fontStack} ]{keep} = 1;
+				}
+				$text = $newtext;
+			}
+			# $FontStack[ $self->{fontStack} ]{sysIn} = ( $3 ) ?  $3 : undef;
+			# print "  " x $self->{fontStack};
+			# print "OPEN <$tagname>: $3  [$self->{fontStack}]\n";
+		}
 	}
-	elsif ( $_[0] eq "span" || $_[0] eq "td" ) {
-		$_[1]{style} =~ /font-family:\s*(['"]|(&quot;))?([\w -]+)[;'"&]?/i;
-		$FontStack[ ++$self->{fontStack} ]{sysIn} = ( $3 ) ? &GetSystemOut ( $self, $3 ) : undef;
+	elsif ( exists ($FontStack[ $self->{fontStack} ]{tag}) && ($tagname eq $FontStack[ $self->{fontStack} ]{tag}) ) {
+		$FontStack[ ++$self->{fontStack} ]{tag} = $tagname;
+		$FontStack[ $self->{fontStack} ]{sysIn} = $FontStack[ ($self->{fontStack} - 1) ]{sysIn};
+		$FontStack[ $self->{fontStack} ]{keep}  = 1;
 	}
 
-	$self->SUPER::start(@_);
+	}
+
+	# print STDERR "PUSHING: $text\n==========================\n";
+	push ( @gFile, $text );
+
 
 }  
 
 
 sub end
 {
-my $self = shift;
+my ($self, $tagname, $text) = @_;
 
 
-	$self->SUPER::end(@_);
-	$self->{fontStack}-- if ( $_[0] eq "font" || $_[0] eq "span" || $_[0] eq "td" );
+	if ( exists ($FontStack[ $self->{fontStack} ]{tag}) && ($tagname eq $FontStack[ $self->{fontStack} ]{tag}) ) {
+		if ( exists($FontStack[ $self->{fontStack} ]{keep}) ) {
+			push ( @gFile, $text );
+			delete($FontStack[ $self->{fontStack} ]{keep});
+		}
+		delete($FontStack[ $self->{fontStack} ]{tag});
+		delete($FontStack[ $self->{fontStack}-- ]{sysIn}); 
+	}
+	else {
+		push ( @gFile, $text );
+	}
 
 }
 
 
 sub UpdateFontTag
 {
-my ( $self, $args ) = ( shift, shift );
+my ( $self, $attr ) = @_;
 
 
-	if ( ($args !~ /size/i) && ($args !~ /color/i) ) {
-		${$FontStack[ $self->{fontStack} ]{delete}} = "true";
-		return ( "" );
+	delete ( $attr->{face} );
+	return unless ( %{$attr} );
+
+	my $args;
+	foreach ( keys %$attr ) {
+		$args .= " $_=\"$attr->{$_}\"";
 	}
-
-	$args =~ s/(\s*)?face(\s*)=(\s*)"?([^"]+)"?//i;
 
 	"<font$args>";
 
 }
 
 
-sub UpdateSpanTag
+sub UpdateStyle
 {
-my ( $self, $args ) = ( shift, shift );
+my ( $self, $tagname, $attr ) = @_;
 
+
+	my $style = $attr->{style};
+	delete ( $attr->{style} );
 
 	#
-	# if ( ($args !~ /font-size/i) && ($args !~ /font-color/i) ) {
+	# if ( ($style !~ /font-size/i) && ($style !~ /font-color/i) ) {
 	#
-	if ( $args !~ ";" || $args =~ "char-type:" ) {
-		${$FontStack[ $self->{fontStack} ]{delete}} = "true";
-		return ( "" );
-	}
+	# return if ( $style !~ ";" || $style =~ "char-type:" );
+	return if ( $style =~ "char-type:" );
 
-	# $args =~ s/(\s*)?((\w+-)*)?font-family:\s*(['"]|&quot;)?(.*?);+?//gi;
+	# $style =~ s/(\s*)?((\w+-)*)?font-family:\s*(['"]|&quot;)?(.*?);+?//gi;
 	#
 	#  This takes care of font names with boundaries:
 	#
-	$args =~ s/(\s*)?((\w+-)*)?font-family:\s*(['"]|&quot;)(.*?)$1//gi;
+	$style =~ s/(\s*)?((\w+-)*)?font-family:\s*(['"]|&quot;)(.*?)$1//gi;
 	#
 	#  This takes care of font names without boundaries:
 	#
-	$args =~ s/(\s*)?((\w+-)*)?font-family:\s*[\w -]+//gi;
+	$style =~ s/(\s*)?((\w+-)*)?font-family:\s*[\w -]+//gi;
 
-	"<span$args>";
+	$attr->{style} = $style if ( $style );
+
+	return unless ( %$attr );
+
+	my $args;
+	foreach ( keys %$attr ) {
+		$args .= " $_=\"$attr->{$_}\"";
+	}
+
+	"<$tagname$args>";
 
 }
 
@@ -142,13 +208,8 @@ my ( $self, $face )  = ( shift, shift );
 
 
 	if ( !$face ) {
-		if ( $self->{fontStack} && ${$FontStack[ $self->{fontStack} ]{sysIn}} )
-	 	{
-			$face = $lastFace;
-		}
-		else {
-			return ( undef );
-		}
+		return unless ( $self->{fontStack} && ${$FontStack[ $self->{fontStack} ]{sysIn}} );
+		$face = $lastFace;
 	}
 	$lastFace = $face;
 
@@ -159,53 +220,224 @@ my ( $self, $face )  = ( shift, shift );
 }
 
 
-sub UpdateHREF
+sub PostUpdateHREF
 {
-my ($file, $args) = @_;
+my ($base_uri, $link, $file_query) = @_;
+
+	# printf STDERR "Entering PostUpdateHREF $file_query\n";
+	my $attr = $link;
+
+	$attr =~ s/(href\s*=\s*\S+)(.*)?/$1/i;
+	$attr =~ s/href//i;
+	$attr =~ s/=//;
+	$attr =~ s/"//g;
+	$attr =~ s/^\s+//;
+
+	my $uri = new URI ( $attr );
+	
+	if ( my $scheme = $uri->scheme ) {
+		# printf STDERR "YES SCHEME\n";
+		return ( $link ) if ( $scheme eq "mailto" || $scheme eq "file" );
+
+		return ( $link ) if ( $link =~ s/nolivegeezlink//i );
+	}
+	else {
+		# printf STDERR "NO SCHEME\n";
+		my $uri_out = URI->new_abs ( $uri, $base_uri->{_uri} );
+		# printf STDERR $uri_out->canonical,"\n";
+		return ( "href=\"".$uri_out->canonical."\"" ) if ( $link =~ /nolivegeezlink/i );
+		$uri = $uri_out;
+	}
+
+		# printf STDERR "QUERY: $URIS{file_query}\n";
+	
+	qq(href="$file_query) . $uri->canonical . qq(");
+}
 
 
-	$args =~ s|"\./|| if ( $file->{isRemote} );
+sub UpdateTitle
+{
+	#
+	#  This will use the last "sysIn" value which may not correspond to the encoding
+	#  here, so this approach will be hit-and-miss.  Consider a 2 part font where
+	#  the last encoding might have been the 2nd part (GeezNewB), we should have a
+	#  method to get the first part encoding
+	#
 
-	#
-	#  if LIVEGEEZLINK is already here, don't add it
-	#
-	return ( $args ) if ( $args =~ "LIVEGEEZLINK" );
+	$_[0]->{request}->{string} = &decode_more_entities ( HTML::Entities::decode ( $_[0]->{request}->{string} ) );
 
-	#
-	#  else, add it
-	#
-	"$args LIVEGEEZLINK";
+	LiveGeez::Services::ProcessString ( $_[0]->{request} );
 
 }
 
 
-sub HTML
+sub FakeCCS
 {
-my ( $file, $sourceFile ) = ( shift, shift );
-my $p = new LiveGeez::CacheAsSERA;
-my $seraFile = $sourceFile;
+my ( $sourceFile ) = @_;
+
+	open (FILE, "$sourceFile");
+	$_ = join ( "", <FILE> );
+	close (FILE);
+
+	
+	if ( /<link href=".*?vg.css"/oi ) {
+		s/<link href=".*?vg.css" .*?>//oi;
+		s/(<p.*?><.*?>)/$1<font face="VG2 Main">/isgo;
+		s/(<t[dh].*?>)/$1<font face="VG2 Main">/isgo;
+	}
+
+	s/(<\/(p|(t[dh]))>)/<\/font>$1/isgo;
+
+	open (FILEX, ">$sourceFile");
+	print FILEX;
+	close (FILEX);
+}
 
 
-	$seraFile =~ s/\.htm(l)?(\.gz)?/.sera.html/i;
-	$seraFile =~ s/$webRoot/$FileCacheDir/
+sub Local
+{
+my ( $file, $sourceFile ) = @_;
+
+	open ( FILE, "$sourceFile" );
+	local $/ = undef;
+	# @gFile = <FILE>;
+	# $_ = join ( "", @gFile);
+	$_ = <FILE>;
+	close ( FILE );
+	# $#gFile = -1;
+
+	my $updated = 0;
+	if ( /livegeez/i ) {
+		$updated = 1;
+		$_ = LiveGeez::Directives::ParseDirectives ( $file, $_ );
+	}
+	if ( /href/i ) {
+		$updated = 1;
+		unless ( $file->{request}->{config}->{usecookies} ) {
+			my $uri = new LiveGeez::URI ( $file->{request}->{uri}->canonical );
+			s#<a(\s+)(href[^>]+)>(.*?)</a>#$space = $1; $arg = $2; $data = $3; $link = ($3 =~ "<sera>" && $arg !~ $file->{scriptRoot} && $arg !~ /mailto:/i) ? PostUpdateHREF( $uri, $arg, $file->{request}->{config}->{uris}->{file_query} ) : $arg ;  "<a$space$link>$data</a>"#oeisg;
+		}
+		s/ NOLIVEGEEZLINK>/>/oig;
+	}
+
+	$file->{refsUpdated} = 1;
+
+	return ( $sourceFile ) unless ( $updated );
+
+	my $seraFileIn = $sourceFile;
+	$seraFileIn =~ s/$file->{ext}$/sera.html/i;
+	$seraFileIn =~ s/sera\.sera\.html$/zobel.html/i;
+	$seraFileIn =~ s/$file->{request}->{config}->{uris}->{webroot}/$file->{request}->{config}->{uris}->{cachelocal}/
 		unless ( $sourceFile =~ "cache" );
-	$file->{isZipped} = "true";
-	$file->{request}->{sysIn} = new Convert::Ethiopic::System ( "sera" );
 
-	return ( "$seraFile.gz" ) if (-e "$seraFile.gz");
+	my $seraFileOut = $seraFileIn;
 
-	$p->{request}->{sysOut} = new Convert::Ethiopic::System ( "sera" );
+	unless ( $seraFileIn =~ /index\.($file->{request}->{sysOut}->{lang}\.)?zobel\.html$/ ) {
+		$seraFileOut .= ".gz";
+		$file->{isZipped} = "true";
+	}
+	$file->{request}->{sysIn} = $s;
+
+	# printf STDERR "SeraFile[$$]: $seraFileOut\n";
+	if (-e $seraFileOut) {
+	# printf STDERR "Found[$$]: $seraFileOut\n";
+	# 	$file->{refsUpdated} = 1;
+		return ( $seraFileOut )
+	}
+	open ( SERACACHE, ">$seraFileIn" ) || $file->{request}->DieCgi
+		 ( "!: Could Not Open Source File: $seraFileIn!\n" );
+
+	print SERACACHE;
+
+	close ( SERACACHE );
+
+	system ( 'gzip' , $seraFileIn ) if ( $file->{isZipped} eq "true" );
+
+	$seraFileOut;             # this is the return value
+}
+
+
+sub Remote
+{
+my ( $file, $sourceFile ) = @_;
+
+
+	#
+	#  The first thing we do is check if we have a cached sera file,
+	#  if so we're outa here:
+	#
+	my $seraFileIn = $sourceFile;
+	# printf STDERR "SOURCE[$$]: $sourceFile\n";
+	$seraFileIn =~ s/$file->{ext}$/sera.html/i;
+	$seraFileIn =~ s/sera\.sera\.html$/zobel.html/i;
+	$seraFileIn =~ s/$file->{request}->{config}->{uris}->{webroot}/$file->{request}->{config}->{uris}->{cachelocal}/
+		unless ( $sourceFile =~ "cache" );
+
+	my $seraFileOut = $seraFileIn;
+
+	unless ( $seraFileIn =~ /index\.($file->{request}->{sysOut}->{lang}\.)?zobel\.html$/ ) {
+		$seraFileOut .= ".gz";
+		$file->{isZipped} = "true";
+	}
+
+	# printf STDERR "SeraFile[$$]: $seraFileOut\n";
+	if (-e $seraFileOut) {
+	# printf STDERR "Found[$$]: $seraFileOut\n";
+		$file->{refsUpdated} = 1;
+		$file->{request}->{sysIn} = $s;
+		return ( $seraFileOut )
+	}
+
+	$p->{uri} = new LiveGeez::URI ( $file->{request}->{uri}->canonical );
+
+	if ( $file->{request}->{sysIn}->{sysName} eq "sera" ) {
+		open ( FILE, "$sourceFile" );
+		# @gFile = <FILE>;
+		# $_ = join ( "", @gFile);
+		local $/ = undef;
+		$_ = <FILE>;
+		close ( FILE );
+	}
+	else {
+
+	FakeCCS ( $sourceFile )
+		if ( $file->{request}->{file} =~ m|http://www.waltainfo.com|i );
+
+	$p->{fontStack} = 0;
+
+	$p->{request}->{sysOut} = $s;
 	$p->{request}->{sysOut}->{langNum} = $file->{request}->{sysOut}->{langNum};
 	$p->{request}->{sysOut}->{options} = $file->{request}->{sysOut}->{options};
+	$p->{request}->{sysOut}->{iPath}   = "";
+	$p->{request}->{sysOut}->{fontNum} = 0;
+	$p->{request}->{pragma} = $file->{request}->{pragma};
 
 	system ( 'gzip', '-d', $sourceFile ) if ( $sourceFile =~ s/\.gz$// );
 
+	# printf STDERR "Parsing[$$]: $sourceFile\n";
 	$p->parse_file( $sourceFile );
-	open ( SERACACHE, ">$seraFile" ) || $file->{request}->DieCgi
-		 ( "!: Could Not Open Source File: $seraFile!\n" );
+	# printf STDERR "Done[$$]:    $sourceFile\n";
 
 	$_ = join ( "", @gFile );
+
+	# printf STDERR "$_\n";
+	#
+	# convert title to sera if 8-bit chars present
+	#
+	my ($space, $link, $data);
+	s#<title>(.*?)</title>#$title = $1; if ( $title =~ /[\x80-\xff]/ ) { $p->{request}->{string} = $title ; $title = UpdateTitle ( $p ); } "<title>$title</title>"#imse;
+
 	$#gFile = -1;
+	}
+
+	# $#gFile = -1;
+
+	$file->{refsUpdated} = -1;
+
+	$file->{request}->{sysIn} = $s;
+
+	$_ = LiveGeez::Directives::ParseDirectives ( $file, $_ );
+
 	#
 	# strip extra <sera> and </sera> tags
 	#
@@ -215,21 +447,37 @@ my $seraFile = $sourceFile;
 	#
 	# set up local links with Ethiopic text to use Zobel
 	#
-	my ($space, $link, $data);
-	s#<a(\s+)(href[^>]+)>(.*?)</a>#$space = $1; $arg = $2; $data = $3; $link = ($3 =~ "<sera>" && $arg !~ $scriptBase && $arg !~ /mailto:/i) ? UpdateHREF($file, $arg) : $arg ; "<a$space$link>$data</a>"#oeisg;
-	s/<META([^>]+)>(\r)?(\n)?//ig;
+	# printf STDERR "Before PostUpdateHREF [$URIS{zuri}]\n";
+	# printf STDERR "$_\n";
+	unless ( $file->{request}->{config}->{usecookies} ) {
+		s#<a(\s+)(href[^>]+)>(.*?)</a>#$space = $1; $arg = $2; $data = $3; $link = ($3 =~ "<sera>" && $arg !~ $file->{scriptRoot} && $arg !~ /mailto:/i) ? PostUpdateHREF( $p->{uri}, $arg, $file->{request}->{config}->{uris}->{file_query} ) : $arg ;  "<a$space$link>$data</a>"#oeisg;
+	}
+	s/ NOLIVEGEEZLINK>/>/oig;
+
+
+	#
+	# strip meta tags which we no longer need and may infact set
+	# charsets that we don't want.
+	#
+	s/<META([^>]+)>(\r)?(\n)?//oig;
 
 	#
 	# strip out anything before the <html declaration or
-	# libeth gets confused with the tokens
+	# libeth gets confused with the tokens, we gotta fix libeth
 	#
 	s/(.*?)(<HTML)/$2/si;
 
+
+	open ( SERACACHE, ">$seraFileIn" ) || $file->{request}->DieCgi
+		 ( "!: Could Not Open Source File: $seraFileIn!\n" );
+
 	print SERACACHE;
+
 	close ( SERACACHE );
 
-	system ( 'gzip' , $seraFile );
-	$seraFile .= ".gz";             # this is the return value
+	system ( 'gzip' , $seraFileIn ) if ( $file->{isZipped} eq "true" );
+
+	$seraFileOut;             # this is the return value
 
 }
 
