@@ -1,4 +1,3 @@
-require "/home/enh/HTML/cgi/cgi-lib.pl";
 
 
 sub getCookies {

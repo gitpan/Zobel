@@ -144,7 +144,7 @@ sub AboutLiveGeez
 	print <<ABOUT;
 <h1 align="center">About LiveGe'ez &amp; LibEth</h1>
 
-<p>This is the GFF implementation of the LiveGe'ez Remote Processing Protocal.  Ethiopic web service is performed through a collection of CGI scripts (Zobel v.0.06) written in Perl interfaced with the LibEth library (v. $leVersion).</p>
+<p>This is the GFF implementation of the LiveGe'ez Remote Processing Protocal.  Ethiopic web service is performed through a collection of CGI scripts (Zobel v.0.07) written in Perl interfaced with the LibEth library (v. $leVersion).</p>
 <h3>For More Information Visit:</h3>
 <ul>
   <li> <a href="http://libeth.netpedia.net/">LibEth</a>

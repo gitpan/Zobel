@@ -93,8 +93,12 @@ local ( %input ) = @_ if @_  > 1;
 		$input{xferOut} = $B if ( !$input{xferOut} );
 	}
 
-	$self->{sysOut} = Convert::Ethiopic::System->new( $input{sysOut} ) 
-		|| CgiDie ( "Unrecognized Conversion System: $input{sysOut}." );
+
+	if ( !($self->{sysOut} = Convert::Ethiopic::System->new( $input{sysOut} )) )
+	{
+		print PrintHeader;
+		CgiDie ( "Unrecognized Conversion System: $input{sysOut}." )
+	}
 
 
 	if ( $cookies{'7-bit'} eq "true" ) {
