@@ -1,5 +1,8 @@
 Revision history for Perl module LiveGeez
 
+0.12 Fri Nov 26 11:30:05 EST 1999
+	- bug fix for frames in HTML::FixLink
+
 0.11 Sat Nov 13 23:53:37 EST 1999
 	- File.pm fixes for file and dirs names with spaces and parenthesis.
 	- GeezTypeNet and AMH3 fonts added.

@@ -72,10 +72,10 @@ my ( $link, $LGLink, $target );
 
 sub FixLink
 {
-my $link = shift;
+my ($link, $sysPragmaOut, $scriptRoot, $baseURL) = @_;
 
 
-	$link = "$scriptRoot?sys=$sysPragmaOut&file=$file->{baseURL}$link";
+    $link = "$scriptRoot?sys=$sysPragmaOut&file=$baseURL$link";
 	$link =~ s#/(\w+)/\.\./#/#;  # stupid servers need this...
 	$link;
 }
@@ -219,7 +219,7 @@ my ( $scriptRoot ) = ( $file->{baseURL} )
 	s/LIVEGEEZSYS/$sysOut/g;
 	s/<a(\s+)(href[^>]+)>/UpdateHREF($sysPragmaOut, $file->{baseDomain}, $file->{baseURL}, $scriptRoot, $2)/oeig;
 	s/<img([\s\w,="]+src[^>]+)>/UpdateSRC($file->{baseDomain}, $file->{baseURL}, $scriptRoot, $1)/oeig;
-	s/<frame([^>]+)src="?([^"]+)"?/"<frame$1src=\"".FixLink($2)."\""/oeig;
+	s/<frame([^>]+)src="?([^"]+)"?/"<frame$1src=\"".FixLink($2,$sysPragmaOut,$scriptRoot,$file->{baseURL})."\""/oeig;
 
 	#
 	#  Calendar Links
