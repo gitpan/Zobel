@@ -5,8 +5,6 @@ require Exporter;
 
 @ISA = qw(Exporter);
 @EXPORT = qw(
-			ReadParse
-			CgiDie
 			setCookie
 			);
 
@@ -223,7 +221,7 @@ local ( $key, $pragma );
 	#
 
 	$self->{frames}     = $input{frames}    if ( $input{frames} );
-	$self->{setCookie}  = $input{setCookie} if ( $input{setcookie} );
+	$self->{setCookie}  = $input{setcookie} if ( $input{setcookie} );
 	$self->{scriptURL}  = $scriptURL;
 	$self->{scriptBase} = $scriptBase;
 

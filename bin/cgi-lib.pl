@@ -423,7 +423,8 @@ sub CgiError {
 sub CgiDie {
   local (@msg) = @_;
   &CgiError (@msg);
-  die @msg;
+  # die @msg;
+  exit (0);
 }
 
 

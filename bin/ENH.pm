@@ -342,8 +342,8 @@ local ( $TEMPLATEBOT )     = "misc/NoFrames/right.sera.html";
 		# Bottom of File
 		#
 
-		$r->{file} = $TEMPLATEBOT;
-		my ( $bot )  = LiveGeez::File->new ( $r );
+		$r->{file}  = $TEMPLATEBOT;
+		my ( $bot ) = LiveGeez::File->new ( $r );
 
 
 		#=======================================================================

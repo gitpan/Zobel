@@ -14,7 +14,7 @@ require Exporter;
 			AboutLiveGeez
 			);
 
-require Et;
+require Convert::Ethiopic;
 use Convert::Ethiopic::Time;
 use Convert::Ethiopic::Cstocs;
 use Convert::Ethiopic::System;
@@ -139,14 +139,12 @@ local ( $request ) = shift;
 sub AboutLiveGeez
 {
 
-	print PrintHeader;
-
 	print HtmlTop( "About LiveGe'ez &amp; LibEth" );
-	my ( $leSys ) = Convert::Ethiopic::LibEthVersion;
+	my ( $leVersion ) = Convert::Ethiopic::LibEthVersion;
 	print <<ABOUT;
 <h1 align="center">About LiveGe'ez &amp; LibEth</h1>
 
-<p>This is the GFF implementation of the LiveGe'ez Remote Processing Protocal.  Ethiopic web service is performed through a collection of CGI scripts (Zobel v.0.03) written in Perl interfaced with the LibEth library (v. $leSys).</p>
+<p>This is the GFF implementation of the LiveGe'ez Remote Processing Protocal.  Ethiopic web service is performed through a collection of CGI scripts (Zobel v.0.04) written in Perl interfaced with the LibEth library (v. $leVersion).</p>
 <h3>For More Information Visit:</h3>
 <ul>
   <li> <a href="http://libeth.netpedia.net/">LibEth</a>
@@ -294,12 +292,16 @@ sub ProcessRequest
 local ( $r ) = shift;
 
 
+	print PrintHeader;
+	$r->{HeaderPrinted} = "true";
+
 	if ( $r->{type} eq "file") {
 		# Only SERA supported at this time...
 		my ( $f ) = LiveGeez::File->new ( $r );
 		$f->Display;
 	}
 	elsif ( $r->{type} eq "calendar" ) {
+
 		# What time is it??
 		if ( $r->{calIn} && $r->{calIn}   !~ /(ethio)|(euro)/ ) {
 			CgiDie ("Unsupported Calendar System: $r->{calIn}");
@@ -307,22 +309,18 @@ local ( $r ) = shift;
 		if ( $r->{calOut} && $r->{calOut} !~ /(ethio)|(euro)/ ) {
 			CgiDie ("Unsupported Calendar System: $r->{calOut}");
 		}
-		print PrintHeader;
     	print ProcessDate ( $r );
 	}
 	elsif ( $r->{type} eq "string" ) {
 		# Only SERA supported at this time...
-		print PrintHeader;
 		print ProcessString ( $r );
 	}
 	elsif ( $r->{type} eq "number" ) {
 		# We have a number request...
-		print PrintHeader;
 		print ProcessNumber ( $r );
 	}
 	elsif ( $r->{type} eq "game-fortune" ) {
 		# A random fortune from our vast library...
-		print PrintHeader;
 		print ProcessFortune ( $r );
 	}
 	elsif ( $r->{type} eq "about" ) {

@@ -67,10 +67,10 @@ Installation:
 	Obtain and install Convert::Ethiopic from where you found Zobel.
     LibEth is required:  http://libeth.netpedia.net
 
-	Download the tar.gz, unpack it, change to the LiveGeez-*
+	Download the tar.gz, unpack it, change to the Zobel-*
 	directory. Then do
 
-		Edit LiveGeez/Local.pl and bin/cookies.pl
+		Edit LiveGeez/Local.pm and bin/cookies.pl
 		perl Makefile.PL
 		make
 		make install

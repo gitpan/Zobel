@@ -51,6 +51,8 @@ my $self = {};
 	$self->{fileSysOut} .= ".$request->{sysOut}->{lang}";
 	$self->{fileSysOut} .= ".NoFrames"
 							 if ( $request->{frames} eq "no" );
+	$self->{fileSysOut} .= ".FirstTime"
+							 if ( $request->{FirstTime} );
 
 	my $blessing = bless $self, $class;
 
@@ -290,7 +292,7 @@ local ( $dir, $file, $cacheDir, $cacheFileIn, $cacheFileOut, $sourceFile, $ext )
 	} else {
 		MakeCacheDir ($cacheDir);
 		$sourceFile = "$webRoot/$diskFile";
-	    if ( (-e "$webRoot/$FILE.gz") ) {
+	    if ( (-e "$sourceFile.gz") ) {
 	    	$self->{isZipped} = "true";
 			$sourceFile .= ".gz";
 		}

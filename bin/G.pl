@@ -41,20 +41,21 @@ local ( $r ) = LiveGeez::Request->new;
 
 
 	if ( $input{sysOut} =~ /image/i  || $input{sys} =~ /image/i
-	     || $input{sysOut} eq "FirstTime" || $input{sys} eq "FirstTime" )
+	     || $input{sysOut} eq "FirstTime" || $input{sys} eq "FirstTime" 
+	     || $input{sysOut} eq "ENHPFR" || $input{sys} eq "ENHPFR" )
 	{
 		$input{sysOut} = $defaultSysOut;
 		delete ( $input{sys} );
 		$r->{FirstTime} = "true";
 		$r->{setCookie} = "true";
 	}
-
+	$input{file} = "/index.sera.html" if ( $input{file} =~ /(\/)?index.serax.html/ );
 
 	$r->ParseInput ( \%input );
 	undef ( %input );
 
 
-	SetCookie ( $r ) if ( $r->{setCookie} eq "true" );
+	&SetCookie ( $r ) if ( $r->{setCookie} );
 
 
     if ( $r->{type} eq "file" ) {

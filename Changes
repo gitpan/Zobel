@@ -1,5 +1,9 @@
 Revision history for Perl module LiveGeez
 
+
+0.04  Wed May 12 17:35:59 EET DST 1999
+	- bug fixes, Zobel exits more gracefully now.
+
 0.03  Wed May 12 17:35:59 EET DST 1999
 	- bug fixes
 	- requests for local files works when path is given w/o
