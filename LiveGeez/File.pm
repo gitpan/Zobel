@@ -29,17 +29,22 @@ $#gFile = 100;	# preset to one hundred lines, most articles should be
 
 sub new
 {
-my $class = shift;
+my $class   = shift;
 my $request = shift;
-my $self = {};
+my $self    = {};
 
 
-	$request->{file} .= "/"
-	    if ( $request->{file} !~ /\.(\w+)$/ && $request->{file} !~ /\/$/ );
-
-
-	$request->DieCgi ( "Unrecognized file type, does not appear to be HTML<br>$request->{file}" )
-		if ( $request->{file} !~ /htm(l)?$/i && $request->{file} !~ /\/$/ );
+	if ( $request->{file} !~ /\/$/ ) {
+		if ( $request->{file} !~ /htm(l)?$/i ) {
+			$request->{file} .= "/";
+		}
+		#
+		# What do we check for?
+		#
+		# elsif ( ) {
+		# 		$request->DieCgi ( "Unrecognized file type, does not appear to be HTML $request->{file}" );
+		# 	}
+	}
 
 	$self->{request}     =   $request;
 
@@ -78,8 +83,8 @@ my $self = {};
 sub OpenFile
 {
 my $self = shift;
-local ( $file ) = $self->{request}->{file};
-local ( $sourceFile, $fileStream, $fileIsURL );
+my $file = $self->{request}->{file};
+my ( $sourceFile, $fileStream, $fileIsURL );
 
 
 	#
@@ -176,7 +181,7 @@ my $self = shift;
 sub DisplayFileAndCache
 {
 my $self = shift;
-local ( $cacheFile ) = $self->{cacheFileIn};
+my $cacheFile = $self->{cacheFileIn};
 
 
 	$self->{request}->HeaderPrint;
@@ -204,8 +209,8 @@ local ( $cacheFile ) = $self->{cacheFileIn};
 sub getURL
 {
 my $self = shift;
-local ( $url, $cacheDate ) = @_;
-local ( $responseCode );
+my ( $url, $cacheDate ) = @_;
+my $responseCode;
 
 
 	my $ua = new LWP::UserAgent;
@@ -252,11 +257,11 @@ local ( $responseCode );
 sub CheckCacheFile
 {
 my $self = shift;
-local ( $diskFile ) = $self->{request}->{file};
-local ( $dir, $file, $cacheDir, $cacheFileIn, $cacheFileOut, $sourceFile, $ext );
+my $diskFile = $self->{request}->{file};
+my ( $dir, $file, $cacheDir, $cacheFileIn, $cacheFileOut, $sourceFile, $ext );
 
 
-	($file,$dir) = split ( m#/#, reverse($diskFile), 2 );
+	($file, $dir) = split ( m#/#, reverse($diskFile), 2 );
 	$dir = reverse($dir);
 
 	if ( $file ) {
@@ -347,8 +352,8 @@ local ( $dir, $file, $cacheDir, $cacheFileIn, $cacheFileOut, $sourceFile, $ext )
 sub CheckCacheURL
 {
 my $self = shift;
-local ( $URL ) = $self->{request}->{file};
-local ( $proto, $url, $dir, $file, $cacheDir, $cacheFileIn, $cacheFileOut, $ext, $baseURL );
+my $URL  = $self->{request}->{file};
+my ( $proto, $url, $dir, $file, $cacheDir, $cacheFileIn, $cacheFileOut, $ext, $baseURL );
 
 
 	($proto,$url) = split ( m#//#, $URL, 2 );
@@ -443,7 +448,7 @@ local ( $proto, $url, $dir, $file, $cacheDir, $cacheFileIn, $cacheFileOut, $ext,
 #------------------------------------------------------------------------------#
 sub MakeCacheDir
 {
-local ( $cacheDir ) = shift;
+my $cacheDir = shift;
 
 
 	if ( !(-e $cacheDir) ) {
@@ -470,8 +475,8 @@ local ( $cacheDir ) = shift;
 sub DisplayFromCache
 {
 my $self = shift;
-local ( $cacheFile ) = $self->{cacheFileOut};
-local ( $fileStream );
+my $cacheFile = $self->{cacheFileOut};
+my $fileStream;
 
 
 	$self->{request}->HeaderPrint;
@@ -497,8 +502,8 @@ local ( $fileStream );
 sub ReadFromCache
 {
 my $self = shift;
-local ( $cacheFile ) = $self->{cacheFileOut};
-local ( $fileStream );
+my $cacheFile = $self->{cacheFileOut};
+my $fileStream;
 
 
 	$fileStream = ($self->{isZipped}) ? "gzip -d --stdout $cacheFile |" : "$cacheFile";
@@ -515,7 +520,7 @@ local ( $fileStream );
 sub SaveToCache
 {
 my $self = shift;
-local ( $cacheFile ) = $self->{cacheFileIn};
+my $cacheFile = $self->{cacheFileIn};
 
 
     open (CACHEFILE, "| tee $cacheFile")
@@ -535,9 +540,8 @@ my $self = shift;
 
 	foreach $key (keys %$self) {
 		if ( ref $self->{$key} ) {
-			$self->{$key}->show();
-		}
-		else {
+			$self->{$key}->show;
+		} else {
 			print "  $key = $self->{$key}\n";
 		}
 	}
@@ -565,9 +569,9 @@ LiveGeez::File - File Openning and Caching for LiveGe'ez
  main:
  {
 
- 	local ( $r ) = LiveGeez::Request->new;
+ 	my $r = LiveGeez::Request->new;
 
-	my ( $f ) = LiveGeez::File->new ( $r );
+	my $f = LiveGeez::File->new ( $r );
 
 	$f->Display;
 

@@ -13,7 +13,7 @@ require Convert::Ethiopic::System;
 sub new
 {
 my $class = shift;
-my $self = {};
+my $self  = {};
 
 	my $blessing = bless $self, $class;
 
@@ -25,7 +25,7 @@ my $self = {};
 
 sub show
 {
-my ( $self ) = shift;
+my $self = shift;
 
 	foreach $key (sort keys %$self) {
 		print "  $key = $self->{$key}\n";
@@ -36,9 +36,14 @@ my ( $self ) = shift;
 
 sub Pragma
 {
-my ( $self ) = shift;
-local ( *input ) = @_;  # We have passed _ONLY_ the reference
-local ( $pragma, $key );
+my $self = shift;
+########################
+#
+#  We use the %input from ParseQuery which is dynamically scoped.
+#  This works because we know that Pragma is not accessed by anyone else.
+#
+#  my ( *input ) = @_;  # We have passed _ONLY_ the reference
+my ( $pragma, $key );
 
 
 	# Look for pragma directives and group them together as a
@@ -73,8 +78,13 @@ local ( $pragma, $key );
 
 sub SysOut
 {
-my ( $self ) = shift;
-local ( *input ) = @_;  # We have passed _ONLY_ the reference
+my $self = shift;
+########################
+#
+#  We use the %input from ParseQuery which is dynamically scoped.
+#  This works because we know that SysOut is not accessed by anyone else.
+#
+# my ( *input ) = @_;  # We have passed _ONLY_ the reference
 
 
 	#==========================================================================
@@ -147,14 +157,14 @@ local ( *input ) = @_;  # We have passed _ONLY_ the reference
 
 sub ParseQuery
 {
-my ( $self ) = shift;
-local ( $key, $pragma );
-local ( %input ) = ( @_ ) 			#  We are passed something.
-                 ? ( ref $_[0] )       #  Was it a reference?
-                   ?  %{$_[0]}            # Yes. 
-                   : @_                   # No. 
-                 : ()		#  We were not passed anything, so declare our own.
-                 ;
+my $self = shift;
+my ( $key, $pragma );
+local %input = ( @_ ) 		#  We are passed something.
+          ? ( ref $_[0] )       #  Was it a reference?
+            ?  %{$_[0]}            # Yes. 
+            : @_                   # No. 
+          : ()		        #  We were not passed anything, so declare our own.
+          ;
 
 
 	#==========================================================================
@@ -182,7 +192,8 @@ local ( %input ) = ( @_ ) 			#  We are passed something.
 	# Parse Pragma since directives can also be nested in sysOut variables
 	#
 
-	$self->Pragma ( \%input );
+	# $self->Pragma ( \%input );
+	$self->Pragma;
 
 
 	#==========================================================================
@@ -203,7 +214,8 @@ local ( %input ) = ( @_ ) 			#  We are passed something.
 		               :  Convert::Ethiopic::System->new( $defaultSysIn )
 		               ;
 	}
-	$self->SysOut ( \%input );
+	# $self->SysOut ( \%input );
+	$self->SysOut;
 
 
 	#==========================================================================
@@ -303,9 +315,8 @@ local ( %input ) = ( @_ ) 			#  We are passed something.
 
 sub TopHtml
 {
-my ( $self ) = shift;
-local ( $title ) = shift;
-local ( $bgcolor ) = ( $_[0] ) ? ( $_[0] ) : $defaultBGColor;
+my ( $self, $title ) = ( shift, shift );
+my $bgcolor = ( $_[0] ) ? $_[0] : $defaultBGColor;
 
   return <<END_OF_TEXT;
 <html>
@@ -320,7 +331,7 @@ END_OF_TEXT
 
 sub BotHtml
 {
-my ( $self ) = shift;
+my $self = shift;
 
 	&HtmlBot;
 }
@@ -328,7 +339,7 @@ my ( $self ) = shift;
 
 sub ParseCgi
 {
-my ( $self ) = shift;
+my $self = shift;
 
 	unless ( $self->{CgiParsed} ) {
 		$self->{CgiParsed} = "true";
@@ -340,7 +351,7 @@ my ( $self ) = shift;
 
 sub HeaderPrint
 {
-my ( $self ) = shift;
+my $self = shift;
 
 	unless ( $self->{HeaderPrinted} ) {
 		$self->{HeaderPrinted} = "true";
@@ -351,7 +362,7 @@ my ( $self ) = shift;
 
 sub DieCgi
 {
-my ( $self ) = shift;
+my $self = shift;
 
 	$self->HeaderPrint;
 	CgiError ( $_[0] );
@@ -361,9 +372,9 @@ my ( $self ) = shift;
 
 sub ParseCookie
 {
-my ( $self ) = shift;
+my $self = shift;
 						# cookies are seperated by a semicolon and a space
-local ( @rawCookies ) = split ( /; /, $ENV{'HTTP_COOKIE'} );
+my ( @rawCookies ) = split ( /; /, $ENV{'HTTP_COOKIE'} );
 
 
 	foreach ( @rawCookies ) {
@@ -382,9 +393,9 @@ local ( @rawCookies ) = split ( /; /, $ENV{'HTTP_COOKIE'} );
  
 sub SetCookie
 {
-my ( $self ) = shift;
-local ( $encoding, $frames, $bit7 ) = @_;
-local ( $path );
+my $self = shift;
+my ( $encoding, $frames, $bit7 ) = @_;
+my $path;
 
 
 	$frames  = "no"    unless ( $frames );
@@ -418,7 +429,7 @@ LiveGeez::Request - Parse a LiveGe'ez CGI Query
  main:
  {
 
- 	local ( $r ) = LiveGeez::Request->new;
+ 	my $r = LiveGeez::Request->new;
 
 	ProcessRequest ( $r ) || $r->DieCgi ( "Unrecognized Request." );
 

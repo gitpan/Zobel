@@ -27,7 +27,7 @@ use Convert::Ethiopic::Time;
 
 sub UpdateHTMLBuffer
 {
-local ($file) = shift;
+my $file = shift;
 
 
 	$_ = $file->{htmlData};
@@ -62,7 +62,7 @@ local ($file) = shift;
 
 sub writePFRHeader 
 {
-local ($string);
+my $string;
 
 
     $string = qq(<link rel=FONTDEF src="$fontURL">
@@ -81,12 +81,12 @@ local ($string);
 
 sub writeMenuHeader 
 {
-local ($request) = shift;
-local ($string);
-local ($sys)     =  ( $request->{pragma} )
-	             ?   "$request->{sysOut}->{sysName}&pragma=$request->{pragma}"
-	             :    $request->{sysOut}->{sysName}
-	             ;
+my $request = shift;
+my $string;
+my $sys     =  ( $request->{pragma} )
+	        ?   "$request->{sysOut}->{sysName}&pragma=$request->{pragma}"
+	        :    $request->{sysOut}->{sysName}
+	        ;
 
 
 	$string = qq(<script language="JavaScript">
@@ -118,12 +118,13 @@ function openSpecials (file) {
 
 sub writeMailToUpdate
 {
-local ($file) = shift;
-local ($string);
-local ($mailToString) = ( $file->{request}->{frames} eq "no" ) 
-                      ?   "mailToURL"
-                      :   "parent.mailToURL"
-                      ;
+my $file = shift;
+my $string;
+my $mailToString = ( $file->{request}->{frames} eq "no" ) 
+                 ?   "mailToURL"
+                 :   "parent.mailToURL"
+                 ;
+
 
 	$string = qq(\n<script language="JavaScript">
 <!--
@@ -139,7 +140,7 @@ local ($mailToString) = ( $file->{request}->{frames} eq "no" )
 
 sub DateSomething
 {
-local $r = shift;
+my $r = shift;
 
 
 	#
@@ -152,7 +153,7 @@ local $r = shift;
 	$r->{euMonth} = $timeNow[4] + 1;
 	$r->{euYear}  = $timeNow[5] + 1900;
 
-	local ( $date ) = Convert::Ethiopic::Time->new ( $r );
+	my $date = Convert::Ethiopic::Time->new ( $r );
 
 
 	$date->GregorianToEthiopic;
@@ -201,15 +202,13 @@ local $r = shift;
 
 sub OpenFrameSet
 {
-local ( $request )   = shift;
-local ( $frame )     = shift;
-local ( $frameRoot ) = "misc/Frames";
-local ( $file  )     = $request->{file};
-local ( $sysOut )    = $request->{sysOut}->{sysName};
-local ( $fileSysOut );
-local ( $sysPragmaOut );
+my ( $request, $frame ) = ( shift, shift );
+my $frameRoot           = "misc/Frames";
+my $file                = $request->{file};
+my ( $fileSysOut, $sysPragmaOut );
 
 
+my	$sysOut       =   $request->{sysOut}->{sysName};
 	$sysOut      .= ".$request->{sysOut}->{xfer}"
 			 		  if ( $request->{sysOut}->{xfer} ne "notv" );
 	$sysPragmaOut = ( $request->{pragma} )
@@ -227,20 +226,20 @@ local ( $sysPragmaOut );
 	$fileSysOut  .= ".$request->{sysOut}->{lang}";
 
 
-local ( $TOP ) 	  =  ( -e "$FileCacheDir/$frameRoot/addtop.$fileSysOut.html" ) 
+	my $TOP 	  =  ( -e "$FileCacheDir/$frameRoot/addtop.$fileSysOut.html" ) 
 				  ?  "$FileCacheDir/$frameRoot/addtop.$fileSysOut.html"
 				  :  "$scriptBase?sys=$sysPragmaOut&file=$frameRoot/addtop.sera.html"
 				  ;
-local ( $LEFT )	  =  ( -e "$FileCacheDir/$frameRoot/left.$fileSysOut.html" ) 
+	my $LEFT	  =  ( -e "$FileCacheDir/$frameRoot/left.$fileSysOut.html" ) 
 				  ?  "$FileCacheDir/$frameRoot/left.$fileSysOut.html"
 				  :  "$scriptBase?sys=$sysPragmaOut&file=$frameRoot/left.sera.html"
 				  ;
-local ( $RIGHT )  =  ( -e "$FileCacheDir/$frameRoot/right.$fileSysOut.html" ) 
+	my $RIGHT	  =  ( -e "$FileCacheDir/$frameRoot/right.$fileSysOut.html" ) 
 				  ?  "$FileCacheDir/$frameRoot/right.$fileSysOut.html"
 				  :  "$scriptBase?sysPragmaOut=$fileSysOut&file=$frameRoot/right.sera.html"
 				  ;
 
-local ( $FILE )   =  "$scriptBase?sys=$sysPragmaOut&file=$file&frames=skip";
+	my $FILE 	  =  "$scriptBase?sys=$sysPragmaOut&file=$file&frames=skip";
 
 
 	open (FRAME, "$webRoot/$frame") || $r->DieCgi ( "!: Can't Open $frame\n" );
@@ -259,10 +258,8 @@ local ( $FILE )   =  "$scriptBase?sys=$sysPragmaOut&file=$file&frames=skip";
 
 sub ProcessFramesFile
 {
-local ( $r ) = shift;
-
-
-	my ( $f ) = LiveGeez::File->new ( $r );
+my $r = shift;
+my $f = LiveGeez::File->new ( $r );
 
 
 	#
@@ -276,13 +273,13 @@ local ( $r ) = shift;
 		#
 		# Translate buffer.
 		#
-		FileBuffer ($f);
+		FileBuffer ( $f );
 
 
 		#
 		# Retranslate buffer.
 		#
-		UpdateHTMLBuffer ($f);
+		UpdateHTMLBuffer ( $f );
 
 
 		#
@@ -297,14 +294,11 @@ local ( $r ) = shift;
 
 sub ProcessNoFramesFile
 {
-local ( $r ) = shift;
-local ( $articleFile ) = $r->{file};
-local ( $TEMPLATETOP ) = "misc/NoFrames/left.sera.html";
-local ( $TEMPLATEBOT ) = "misc/NoFrames/right.sera.html";
-
-
-
-	my ( $f )  = LiveGeez::File->new ( $r );
+my $r = shift;
+my $articleFile = $r->{file};
+my $TEMPLATETOP = "misc/NoFrames/left.sera.html";
+my $TEMPLATEBOT = "misc/NoFrames/right.sera.html";
+my $f = LiveGeez::File->new ( $r );
 
 
 	#=======================================================================
@@ -326,7 +320,7 @@ local ( $TEMPLATEBOT ) = "misc/NoFrames/right.sera.html";
 		#
 
 		$r->{file}  = $TEMPLATETOP;
-		my ( $top ) = LiveGeez::File->new ( $r );
+		my $top     = LiveGeez::File->new ( $r );
 
 
 		#=======================================================================
@@ -348,7 +342,7 @@ local ( $TEMPLATEBOT ) = "misc/NoFrames/right.sera.html";
 		#
 
 		$r->{file}  = $TEMPLATEBOT;
-		my ( $bot ) = LiveGeez::File->new ( $r );
+		my $bot     = LiveGeez::File->new ( $r );
 
 
 		#=======================================================================
@@ -366,13 +360,13 @@ local ( $TEMPLATEBOT ) = "misc/NoFrames/right.sera.html";
 		#
 		# Translate buffer.
 		#
-		FileBuffer ($f);
+		FileBuffer ( $f );
 
 
 		#
 		# Retranslate buffer.
 		#
-		UpdateHTMLBuffer ($f);
+		UpdateHTMLBuffer ( $f );
 
 
 		#

@@ -8,7 +8,7 @@ use LiveGeez::Services;
 sub
 SetCookie
 {
-local ( $r ) = shift;
+my $r = shift;
 
 	print $r->SetCookie ( $r->{sysOut}->{sysName}, $r->{frames}, 
 						  $r->{sysOut}->{'7-bit'} );
@@ -17,8 +17,8 @@ local ( $r ) = shift;
 
 main:
 {
+my $r = LiveGeez::Request->new;
 
-	local ( $r ) = LiveGeez::Request->new;
 
 	SetCookie ( $r ) if ( $r->{setCookie} eq "true" );
 

@@ -15,8 +15,8 @@ require HTML::Entities;
 
 sub UpdateHREF
 {
-local ( $sysOut, $baseDomain, $baseURL, $scriptRoot, $args ) = @_;
-local ( $link, $LGLink, $target );
+my ( $sysOut, $baseDomain, $baseURL, $scriptRoot, $args ) = @_;
+my ( $link, $LGLink, $target );
 
 
     $link   = $3 if ( $args =~ /href(\s*)=(\s*)"?([^"]+)"?/i );
@@ -49,8 +49,8 @@ local ( $link, $LGLink, $target );
 
 sub UpdateSRC
 {
-local ( $baseDomain, $baseURL, $scriptRoot, $args ) = @_;
-local ( $link, $LGLink, $target );
+my ( $baseDomain, $baseURL, $scriptRoot, $args ) = @_;
+my ( $link, $LGLink, $target );
 
 
     $src = $3 if ( $args =~ /src(\s*)=(\s*)"?([^"]+)"?/i );
@@ -72,7 +72,8 @@ local ( $link, $LGLink, $target );
 
 sub FixLink
 {
-local ( $link ) = shift;
+my $link = shift;
+
 
 	$link = "$scriptRoot?sys=$sysPragmaOut&file=$file->{baseURL}$link";
 	$link =~ s#/(\w+)/\.\./#/#;  # stupid servers need this...
@@ -82,8 +83,8 @@ local ( $link ) = shift;
 
 sub FontMenu
 {
-local ( $args, $sysOut, $file ) = @_;
-local ( $menu, $name, $selected, $other );
+my ( $args, $sysOut, $file ) = @_;
+my ( $menu, $name, $selected, $other );
 
 
     $name      = $3 if ( $args =~ /name(\s*)=(\s*)"?(\w+)/i );
@@ -130,6 +131,7 @@ local ( $menu, $name, $selected, $other );
       <option value=Ethiopia>Ethiopia Primary</option>
       <option value=EthiopiaSlanted>Ethiopia Slanted Primary</option>
       <option value=EthiopiaAnsiP>EthiopiaAnsiP</option>
+      <option value=EthiopiaSlantAnsiP>EthiopiaSlantAnsiP</option>
       <option value=EthioSoft>EthioSoft</option>
       <option value=Ethiopic>ETHIOPIC</option>
       <option value=Fidel>FIDEL~`SOFTWARE</option>
@@ -152,6 +154,7 @@ local ( $menu, $name, $selected, $other );
       <option value=GeezType>GeezType</option>
       <option value=GeezEditAmharicP>Ge&#232;zEdit Amharic P</option>
       <option value=GFZemen>GF Zemen Primary</option>
+      <option value=GFZemen2K>GF Zemen2K Primary</option>
       <option value=HahuLite>Hahu Lite</option>
       <option value=HahuGothic>Hahu Lite Gothic</option>
       <option value=HahuSerif>Hahu Lite Serif</option>
@@ -183,12 +186,12 @@ local ( $menu, $name, $selected, $other );
 
 sub FileBuffer
 {
-local ( $file ) = shift;
-local ( $pragmi );
-local ( $scriptRoot ) = ( $file->{baseURL} ) 
-                      ? $file->{request}->{scriptURL} 
-                      : $file->{request}->{scriptBase}
-                      ;
+my $file = shift;
+my $pragmi;
+my ( $scriptRoot ) = ( $file->{baseURL} ) 
+                     ? $file->{request}->{scriptURL} 
+                     : $file->{request}->{scriptBase}
+                     ;
 
 
 	$_ = Convert::Ethiopic::ConvertEthiopicString (
@@ -204,7 +207,7 @@ local ( $scriptRoot ) = ( $file->{baseURL} )
 		 0    #  </font> closing
 	);
 
-	local ( $sysOut ) = $file->{request}->{sysOut}->{sysName};
+	my $sysOut = $file->{request}->{sysOut}->{sysName};
 	$sysOut .= ".$file->{request}->{sysOut}->{xfer}"
 			if ( $file->{request}->{sysOut}->{xfer} ne "notv" );
 	$sysPragmaOut = ( $file->{request}->{pragma} )

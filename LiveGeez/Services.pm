@@ -38,11 +38,11 @@ $fortuneDir       = "$Local::webRoot/fortunes/";
 #------------------------------------------------------------------------------#
 sub ProcessFortune
 {
-local ( $request ) = shift;
+my $request = shift;
 
 
 	open (FORTUNE, "fortune $fortuneDir |");
-	local ( $fortune ) = Convert::Ethiopic::ConvertEthiopicFileToString (
+	my $fortune = Convert::Ethiopic::ConvertEthiopicFileToString (
 		\*FORTUNE,
 		$unicode,
 		$utf8,
@@ -81,10 +81,10 @@ local ( $request ) = shift;
 #------------------------------------------------------------------------------#
 sub ProcessNumber
 {
-local ( $request ) = shift;
+my $request = shift;
 
 
-	local ( $eNumber ) = Convert::Ethiopic::Cstocs::EthiopicNumber ( $request );
+	my $eNumber = Convert::Ethiopic::Cstocs::EthiopicNumber ( $request );
 
 	$eNumber = $request->TopHtml ( "Converting $request->{number} into Ethiopic..." )
 			 . "$request->{number} is "
@@ -99,10 +99,10 @@ local ( $request ) = shift;
 
 sub ProcessString 
 {
-local ( $request ) = shift;
+my $request = shift;
 
 
-	local ( $eString ) = Convert::Ethiopic::ConvertEthiopicString (
+	my  $eString = Convert::Ethiopic::ConvertEthiopicString (
 		$request->{string},
 		$request->{sysIn}->{sysNum},
 		$request->{sysIn}->{xferNum},
@@ -139,15 +139,15 @@ local ( $request ) = shift;
 #------------------------------------------------------------------------------#
 sub AboutLiveGeez
 {
-local ( $request ) = shift;
+my $request = shift;
 
 
 	print $request->TopHtml ( "About LiveGe'ez &amp; LibEth" );
-	my ( $leVersion ) = Convert::Ethiopic::LibEthVersion;
+	my $leVersion = Convert::Ethiopic::LibEthVersion;
 	print <<ABOUT;
 <h1 align="center">About LiveGe'ez &amp; LibEth</h1>
 
-<p>This is the GFF implementation of the LiveGe'ez Remote Processing Protocal.  Ethiopic web service is performed through a collection of CGI scripts (Zobel v.0.08) written in Perl interfaced with the LibEth library (v. $leVersion).</p>
+<p>This is the GFF implementation of the LiveGe'ez Remote Processing Protocal.  Ethiopic web service is performed through a collection of CGI scripts (Zobel v.0.09) written in Perl interfaced with the LibEth library (v. $leVersion).</p>
 <h3>For More Information Visit:</h3>
 <ul>
   <li> <a href="http://libeth.netpedia.net/">LibEth</a>
@@ -163,17 +163,17 @@ ABOUT
 
 sub ProcessDate
 {
-local ( $request ) = shift;
-local ( $day, $month, $year ) = split ( ",", $request->{date} );
-local ( $xDay, $xMonth, $xYear );
-local ( $returnDate );
+my $request = shift;
+my ( $day, $month, $year ) = split ( ",", $request->{date} );
+my ( $xDay, $xMonth, $xYear );
+my $returnDate;
 
 
 	#
 	# Instantiate a Date Object
 	#
 
-	local ( $date ) = Convert::Ethiopic::Time->new ( $request );
+	my $date = Convert::Ethiopic::Time->new ( $request );
 
 
 	#
@@ -240,7 +240,7 @@ local ( $returnDate );
 		my ($etDate)      = "$etDoW፣ $etMonthName $date->{etDay} $etNumYear ";
 
 
-		if ( $r->{sysOut}->{LCInfo} ) {
+		if ( $request->{sysOut}->{LCInfo} ) {
 			$etDate = Convert::Ethiopic::ConvertEthiopicString (
 							$etDate,
 							$unicode,
@@ -290,7 +290,7 @@ local ( $returnDate );
 		} 
 
 
-		$phrase =~ s/፣/,/ unless ( $r->{sysOut}->{LCInfo} );
+		$phrase =~ s/፣/,/ unless ( $request->{sysOut}->{LCInfo} );
 
 		$returnDate = $phrase . $request->BotHtml;
 					 
@@ -307,14 +307,14 @@ local ( $returnDate );
 
 sub ProcessRequest
 {
-local ( $r ) = shift;
+my $r = shift;
 
 
 	$r->HeaderPrint;
 
 	if ( $r->{type} eq "file") {
 		# Only SERA supported at this time...
-		my ( $f ) = LiveGeez::File->new ( $r );
+		my $f = LiveGeez::File->new ( $r );
 		$f->Display;
 	}
 	elsif ( $r->{type} eq "calendar" ) {
@@ -372,7 +372,7 @@ LiveGeez::Services - Request Processing Services for LiveGe'ez
  main:
  {
 
- 	local ( $r ) = LiveGeez::Request->new;
+ 	my $r = LiveGeez::Request->new;
 
 	ProcessRequest ( $r ) || $r->DieCgi ( "Unrecognized Request." );
 

@@ -22,8 +22,8 @@ sub output
 {
 my $self = shift;
 
-	$_ = shift;
 
+	$_ = shift;
 
 	if ( ${$FontStack[ $self->{fontStack} ]{sysIn}} ) {
 		NEXT:
@@ -42,7 +42,7 @@ my $self = shift;
 		                      # like " ?> " to close images.  This could be
 		                      # an HTML::Parser error
 			my $trash;
-			($trash, $_) = split (/>/);
+			( $trash, $_ ) = split (/>/);
 			push ( @gFile, "$trash>" );
 			goto NEXT;
 		}
@@ -80,8 +80,7 @@ my $self = shift;
 
 sub UpdateFontTag
 {
-my $self = shift;
-local ( $args ) = shift;
+my ( $self, $args ) = ( shift, shift );
 
 
 	if ( ($args !~ /size/i) && ($args !~ /color/i) ) {
@@ -98,8 +97,7 @@ local ( $args ) = shift;
 
 sub GetSystemOut
 {
-local ( $self ) = shift;
-local ( $face ) = shift;
+my ( $self, $face )  = ( shift, shift );
 
 
 	# return ( \$SystemList{$lastFace} ) if ( !$face );
@@ -125,7 +123,8 @@ local ( $face ) = shift;
 
 sub UpdateHREF
 {
-local ($args) = shift;
+my $args = shift;
+
 
 	#
 	#  if LIVEGEEZLINK is already here, don't add it
@@ -142,10 +141,9 @@ local ($args) = shift;
 
 sub HTML
 {
-local ( $p ) = new LiveGeez::CacheAsSERA;
-local ( $file ) = shift;
-local ( $sourceFile ) = shift;
-local ( $seraFile ) = $sourceFile;
+my ( $file, $sourceFile ) = ( shift, shift );
+my $p = new LiveGeez::CacheAsSERA;
+my $seraFile = $sourceFile;
 
 
 	$seraFile =~ s/\.htm(l)?(\.gz)?/.sera.html/i;
@@ -216,8 +214,9 @@ local ( $seraFile ) = $sourceFile;
 
 sub decode_more_entities
 {
+my $array;
 
-    my $array;
+
     if (defined wantarray) {
 		$array = [@_]; # copy
     }
@@ -229,7 +228,6 @@ sub decode_more_entities
 	}
 
     $array->[0];
-
 }
 #########################################################
 # Do not change this, Do not put anything below this.

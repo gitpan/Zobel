@@ -8,7 +8,7 @@ use ENH;
 
 sub SetCookie
 {
-local ( $r ) = shift;
+my $r = shift;
 
 
 	if ( $r ) {
@@ -25,7 +25,7 @@ local ( $r ) = shift;
 
 sub CheckBrowser
 {
-	my @browser = split(/ /, $ENV{HTTP_USER_AGENT});
+	my @browser = split( / /, $ENV{HTTP_USER_AGENT} );
 	if ($browser[0]=~/Mozilla/) { 
 		my @model      = split(/\//, $browser[0]);
 		local $brand   = $model[0];	
@@ -41,8 +41,8 @@ sub CheckBrowser
 
 main:
 {
-local ( %input ) = ();
-local ( $r ) = LiveGeez::Request->new ( 0 ); # don't parse input
+my %input = ();
+my $r = LiveGeez::Request->new ( 0 ); # don't parse input
 
 
 	if ( ($pathInfo = $ENV{PATH_INFO}) ) {
@@ -83,7 +83,7 @@ local ( $r ) = LiveGeez::Request->new ( 0 ); # don't parse input
 				$input{file} .=  "/index.sera.html"
 					if ( $input{file} !~ /htm(l)?$/ );
 			}
-			$sys = "FirstTime"  if  ( ($sys =~ /image/i) || ($sys eq "ENHPFR") );
+			$sys = "FirstTime" if  ( ($sys =~ /image/i) || ($sys eq "ENHPFR") );
 			$input{sysOut} = $sys;
 		}
 
