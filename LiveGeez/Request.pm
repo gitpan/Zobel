@@ -1,5 +1,7 @@
 package LiveGeez::Request;
 
+$VERSION = '0.10';
+
 require 5.000;
 require Exporter;
 

@@ -1,5 +1,7 @@
 package LiveGeez::CacheAsSERA;
 
+$VERSION = '0.10';
+
 require Exporter;
 @ISA=qw(Exporter);
 @EXPORT_OK = qw(HTML);

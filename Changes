@@ -1,5 +1,9 @@
 Revision history for Perl module LiveGeez
 
+0.13 Sun Jan 30 20:42:46 EST 2000
+	- $VERSION addded to all pm files.
+ 	- New GeezFont typefaces added AddisB1, AddisL1, AddisT1
+
 0.12 Fri Nov 26 11:30:05 EST 1999
 	- bug fix for frames in HTML::FixLink
 

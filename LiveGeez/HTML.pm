@@ -1,5 +1,7 @@
 package LiveGeez::HTML;
 
+$VERSION = '0.10';
+
 require 5.000;
 require Exporter;
 
@@ -106,6 +108,9 @@ my ( $menu, $name, $selected, $other );
       <option value=FirstTime>Choose A Font!</option>
       <option value=Addis>Addis One</option> 
       <option value=Addis98>Addis98</option> 
+      <option value=AddisB1>AddisB1</option>
+      <option value=AddisL1>AddisL1</option>
+      <option value=AddisT1>AddisT1</option>
       <option value=AddisWp>AddisWP</option> 
       <option value=Agaw>Agaw</option>
       <option value=AGF-Dawit>AGF - Dawit</option>
