@@ -25,7 +25,7 @@ local ( $link, $LGLink, $target );
 
 
    	return ( $link =~ /^\// ) ? "<a href=\"$baseDomain$link\"$target>" : "<a $args>"
-   		if ( ($link =~ /^(\w)+:/ || $link !~ "\.sera\.") && !$LGLink);
+   		if ( ($link =~ /^(\w)+:/ || $link !~ "\.sera\.") && !$LGLink );
 
 
 	if ( $baseURL ) {
@@ -232,12 +232,13 @@ local ( $scriptRoot ) = ( $file->{baseURL} )
 
 	s/<LIVEGEEZMENU(\s+value[^>]+)?>/<form$1 LIVEGEEZFORM>\n<\/form>/oig;
 	s/<form(\s+)(value[^>]+?)?LIVEGEEZFORM>/<form LIVEGEEZPOST>\n  <LIVEGEEZ FORMFILE>\n  <LIVEGEEZ FORMCOOKIE>\n  <LIVEGEEZ FORMMENU>\n  <LIVEGEEZ $2FORMSUBMIT>/oig;
-	s/<form(\s+)LIVEGEEZPOST>/<form action="$scriptRoot" method="GET">/oig;
+	s/<form([\s\w,="]+)LIVEGEEZPOST>/<form$1action="$scriptRoot" method="GET">/oig;
 	s/<LIVEGEEZ(\s+)FORMFILE>/<input type="hidden" name="file" value="$file->{request}->{file}">/oig;
 	s/<LIVEGEEZ(\s+)FORMCOOKIE>/<input type="hidden" name="setcookie" value="true">/oig;
 	s/<LIVEGEEZ(\s+)FORMMENU>/FontMenu("name=\"sysOut\"", $sysOut, $file->{request}->{file})/oieg;
 	s/<LIVEGEEZ(\s+)(value(\s*)=(\s*)"?([^"]+)"?(\s+))?FORMSUBMIT>/my $value = ( $5 ) ? $5 : "Reopen"; "<input type=\"submit\" value=\"$value\">"/oeig;
 	s/<LIVEGEEZ(\s+)FORMMACFRIENDLY>/<nobr><input type="checkbox" name="pragma" value="7-bit"> Mac Friendly<\/nobr>/oig;
+	s/(value="7-bit")>/$1 checked>/ if ( $file->{request}->{sysOut}->{'7-bit'} );
 	
 
 
@@ -263,7 +264,7 @@ local ( $scriptRoot ) = ( $file->{baseURL} )
 
 	$file->{htmlData} = $_;
 
-	return;
+	1;
 }
 #########################################################
 # Do not change this, Do not put anything below this.

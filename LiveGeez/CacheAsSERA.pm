@@ -175,7 +175,7 @@ local ( $seraFile ) = $sourceFile;
 	# set up local links with Ethiopic text to use Zobel
 	#
 	my ($space, $link, $data);
-	s#<a(\s+)(href[^>]+)>(.*?)</a>#$space = $1; $arg = $2; $data = $3; $link = ($3 =~ "<sera>" && $arg !~ $baseScript) ? UpdateHREF($arg) : $arg ; "<a$space$link>$data</a>"#oeisg;
+	s#<a(\s+)(href[^>]+)>(.*?)</a>#$space = $1; $arg = $2; $data = $3; $link = ($3 =~ "<sera>" && $arg !~ $scriptBase) ? UpdateHREF($arg) : $arg ; "<a$space$link>$data</a>"#oeisg;
 	s/<META([^>]+)>(\r)?(\n)?//ig;
 
 	print OUT;

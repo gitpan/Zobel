@@ -1,5 +1,12 @@
 Revision history for Perl module LiveGeez
 
+0.06  Sat Jul 10 13:16:39 EST 1999
+	- minor bug fix in CacheAsSERA.pm and HTML.pm.
+	- cookies.pl updated to set and detect 7-bit preference.
+	- Request.pm checks cookies for each page opened unless cookie
+	  is being set.
+	- Services.pm and Request.pm fixed for Time services.
+
 0.05  Wed Jun 30 02:05:00 EET DST 1999
 	- CacheAsSERA added, processing of non-SERA HTML files is now
 	  possible

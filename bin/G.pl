@@ -100,9 +100,9 @@ local ( $r ) = shift;
 		print  setCookie ( $r->{sysOut}->{sysName}, $r->{frames}, 
 	                       $r->{sysOut}->{'7-bit'} );
 	} elsif ( $0 =~ "NoFrames" ) {
-		print setCookie ( $defaultSysOut, "no" );
+		print setCookie ( $defaultSysOut, "no", "false" );
 	} else {
-		print setCookie ( $defaultSysOut, "yes" );
+		print setCookie ( $defaultSysOut, "yes", "false" );
 	}
 
 }

@@ -16,6 +16,13 @@ use LiveGeez::Services;
 use LiveGeez::HTML;
 use Convert::Ethiopic::Time;
 
+($unicode, $utf8, $sera, $notv) = (
+	$Convert::Ethiopic::System::unicode,
+	$Convert::Ethiopic::System::utf8,
+	$Convert::Ethiopic::System::sera,
+	$Convert::Ethiopic::System::notv
+	);
+
 
 
 sub UpdateHTMLBuffer
@@ -66,7 +73,8 @@ local ($string);
     <!-- end Bitstream TDServer.ocx support -->
     <link>);
 
-	return ( $string );
+
+	$string;
 }
 
 
@@ -102,8 +110,8 @@ function openSpecials (file) {
 //------------------------------------------------------------------ -->
 </script>\n\n);
 
-	return ($string);
 
+	$string;
 }
 
 
@@ -123,8 +131,8 @@ local ($mailToString) = ( $file->{request}->{frames} eq "no" )
 //------------------------------------------------------------------ -->
 </script>\n\n);
 
-	return ($string);
 
+	$string;
 }
 
 
@@ -162,7 +170,7 @@ local $r = shift;
 	$r->{sysIn}->{sysNum}  = $sera;
 	$r->{sysIn}->{xferNum} = $notv;
 	$string               .= ProcessString ( $r )
-	                      . "</b></font></td><td align=right><a href=\"/ECalendars/ecalendars.cgi?sys=$sys\"><font color=\"black\">";
+	                      . "</b></font></td><td align=right><a href=\"/ECalendars/ecalendars.cgi?sys=$r->{sysOut}->{sysName}\"><font color=\"black\">";
 	$r->{sysIn}->{sysNum}  = $tempSysInNum;
 	$r->{sysIn}->{xferNum} = $tempxferInNum;
 
@@ -185,8 +193,8 @@ local $r = shift;
 	$string .= "<hr>Greetings. You are accessing the ENH either for the first time or with a font sytem no longer supported (such as \"Image\" and \"PFR\").  Please try installing any of the <a href=\"/info/faq.html#FreeFonts\"><font color=\"blue\">free fonts</font></a> available on the Internet."
 		if ( $r->{FirstTime} );
 
-	return ( $string );
 
+	$string;
 }
 
 

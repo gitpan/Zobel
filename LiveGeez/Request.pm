@@ -77,11 +77,17 @@ local ( *input ) = @_ if @_ == 1;
 local ( %input ) = @_ if @_  > 1;
 
 
-	if ( !$input{sysOut} ) {
-		%cookies = &getCookies();
-		$input{sysOut} = ( $cookies{geezsys} ) ? $cookies{geezsys} : $defaultSysOut;
-	} 
-	elsif ( $input{sysOut} =~ /\./ ) {
+	#==========================================================================
+	#
+	#  Check Cookies for extra info each time a page is loaded.
+	#  Don't get cookie data if we are setting a new cookie.
+	#
+	%cookies = getCookies () if ( !$input{setcookie} );
+	$input{sysOut} = ( $cookies{geezsys} ) ? $cookies{geezsys} : $defaultSysOut
+		if ( !$input{sysOut} );
+
+
+	if ( $input{sysOut} =~ /\./ ) {
 	 	my ($A,$B) = split ( /\./, $input{sysOut} );
 		$input{sysOut}  = $A;
 		$input{xferOut} = $B if ( !$input{xferOut} );
@@ -89,6 +95,15 @@ local ( %input ) = @_ if @_  > 1;
 
 	$self->{sysOut} = Convert::Ethiopic::System->new( $input{sysOut} ) 
 		|| CgiDie ( "Unrecognized Conversion System: $input{sysOut}." );
+
+
+	if ( $cookies{'7-bit'} eq "true" ) {
+		if ( $self->{pragma} ) {
+			$self->{pragma} .= ",7-bit" if ( $self->{pragma} !~ /7-bit/ );
+		} else {
+			$self->{pragma}  = "7-bit";
+		}
+	}
 
 
 	#==========================================================================
@@ -207,8 +222,9 @@ local ( $key, $pragma );
 
 	$self->{date} = "$input{day},$input{month},$input{year}" if ( $input{day} );
 
-	if ( $input{cal} ) {
-		$self->{calIn} = $input{cal};
+	$input{calIn} = $input{cal} if ( $input{cal} );
+	if ( $input{calIn} ) {
+		$self->{calIn} = $input{calIn};
 	}
 	elsif ( $input{datesys} ) {				# here for backwards compatibility
 		$self->{calIn} = $input{datesys};
@@ -226,7 +242,7 @@ local ( $key, $pragma );
 	$self->{sysOut}->{lang} = $defaultLang if ( !$input{lang} );
 	$self->{sysOut}->LangNum;
 	$self->{sysOut}->{LCInfo} 
-	     = ( $self->{sysOut}->{sysName} ne "Transcription" ) ? $WITHUTF8 : 0 ;
+	     = ( $self->{sysOut}->{sysName} ne "Transcription" ) ? $Convert::Ethiopic::System::WITHUTF8 : 0 ;
 
 
 	#==========================================================================

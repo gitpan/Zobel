@@ -19,9 +19,9 @@ require LiveGeez::File;
 require Convert::Ethiopic;
 require Convert::Ethiopic::Time;
 require Convert::Ethiopic::Cstocs;
-require Convert::Ethiopic::System;
 require HTML::Entities;
 
+($unicode, $utf8) = ( $Convert::Ethiopic::System::unicode,  $Convert::Ethiopic::System::utf8 );
 
 #------------------------------------------------------------------------------#
 #
@@ -144,7 +144,7 @@ sub AboutLiveGeez
 	print <<ABOUT;
 <h1 align="center">About LiveGe'ez &amp; LibEth</h1>
 
-<p>This is the GFF implementation of the LiveGe'ez Remote Processing Protocal.  Ethiopic web service is performed through a collection of CGI scripts (Zobel v.0.05) written in Perl interfaced with the LibEth library (v. $leVersion).</p>
+<p>This is the GFF implementation of the LiveGe'ez Remote Processing Protocal.  Ethiopic web service is performed through a collection of CGI scripts (Zobel v.0.06) written in Perl interfaced with the LibEth library (v. $leVersion).</p>
 <h3>For More Information Visit:</h3>
 <ul>
   <li> <a href="http://libeth.netpedia.net/">LibEth</a>
@@ -170,7 +170,7 @@ local ( $returnDate );
 	# Instantiate a Date Object
 	#
 
-	local ( $date ) = Convert::Ethiopic::Time->new ( $r );
+	local ( $date ) = Convert::Ethiopic::Time->new ( $request );
 
 
 	#
@@ -184,7 +184,7 @@ local ( $returnDate );
 	}
 
 
-	($xDay, $xMonth, $xYear) = ( $date->{calIn} eq "ethio" )
+	($xDay, $xMonth, $xYear) = ( $request->{calIn} eq "ethio" )
 	                         ?  ( $date->{etDay}, $date->{etMonth}, $date->{etYear} )
 	                         :  ( $date->{euDay}, $date->{euMonth}, $date->{euYear} )
 	                         ;
@@ -235,7 +235,7 @@ local ( $returnDate );
 		my ($euDoW)		  = $date->getEuroDayOfWeek;
 		my ($euMonthName) = $date->getEuroMonth;
 
-		if ( $date->{calIn} eq "euro" ) {
+		if ( $request->{calIn} eq "euro" ) {
 			#
 			# Convert from European -> Ethiopian
 			#

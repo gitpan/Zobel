@@ -6,7 +6,7 @@ use LiveGeez::Local;
 use LiveGeez::HTML;
 require LiveGeez::CacheAsSERA;
 if ( $processURLs ) {
-	#use LWP::Simple;
+	use LWP::Simple;
 }
 #
 # Uncomment these next 3 if using getURL command
