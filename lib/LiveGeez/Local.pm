@@ -1,12 +1,20 @@
 package LiveGeez::Local;
 
-$VERSION = '0.10';
+BEGIN
+{
+	use strict;
+	use vars qw($VERSION @ISA @EXPORT $webRoot $cgiDir $scriptBase $scriptURL
+	$URLCacheDir $FileCacheDir $defaultLang $defaultSysIn $defaultSysOut $processURLs
+	$checkFileDates $iPath $defaultBGColor $cookieDomain $cookieExpires $useApache
+	$useCGI_PM $adminEmail);
 
-require 5.000;
-require Exporter;
+	$VERSION = '0.14';
 
-@ISA = qw(Exporter);
-@EXPORT = qw(
+	require 5.000;
+	require Exporter;
+
+	@ISA = qw(Exporter);
+	@EXPORT = qw(
 			$webRoot
 			$cgiDir
 			$scriptBase
@@ -22,15 +30,18 @@ require Exporter;
 			$defaultBGColor
 			$cookieDomain
 			$cookieExpires
+			$useApache
+			$useCGI_PM
+			$adminEmail
 			);
 
 
-	$webRoot        = "/home2/ethionet/HTML";      # where you keep HTML files
-	$cgiDir         = "/home2/ethionet/HTML/cgi";  # where you keep CGI files
-	$scriptURL      = "http://www.ethiopiaonline.net/Z.pl";  # Zobel URL
+	$webRoot        = "/usr/local/apache/htdocs";      # where you keep HTML files
+	$cgiDir         = "/usr/local/apache/cgi-bin";  # where you keep CGI files
+	$scriptURL      = "http://zobel.geez.org:8080/";  # Zobel URL
 	$scriptBase     = "/Z.pl";    # Zobel from the server root
-	$URLCacheDir    = "./cache";  # where to cache URL documents
-	$FileCacheDir   = "./cache";  # where to cache local files
+	$URLCacheDir    = "/usr/local/apache/htdocs/cache";  # where to cache URL documents
+	$FileCacheDir   = "/usr/local/apache/htdocs/cache";  # where to cache local files
 	$defaultLang    = "amh";      # assumed preferred language
 	$defaultSysIn   = "sera";     # assume files are in this system
 	$defaultSysOut  = "GFZemen";  # default font conversion
@@ -38,11 +49,16 @@ require Exporter;
 	$checkFileDates = 1;        # should we compare local file dates with cache?
 	$iPath          = "/f";       # where we keep fidel images, if any
 	$defaultBGColor	= "#f0f0f0";  # default background color of pages
-	$cookieDomain	= ".ethiopiaonline.net";
+	$cookieDomain	= ".geez.org";
 	$cookieExpires	= "Thu, 11-Nov-01 00:00:00 GMT";
+	$useApache      = 1;
+	$useCGI_PM      = 0;
+	$adminEmail     = "support\@geez.org";
+	# $noCacheing     = 1;
+	# $adminPassword  = "snork";
 
 $| = 1;  # always a good idea!
-
+}
 
 #########################################################
 # Do not change this, Do not put anything below this.

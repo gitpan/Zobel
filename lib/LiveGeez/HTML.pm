@@ -1,18 +1,37 @@
 package LiveGeez::HTML;
+use base qw(Exporter);
 
-$VERSION = '0.10';
+BEGIN
+{
+	use strict;
+	use vars qw($VERSION @EXPORT);
 
-require 5.000;
-require Exporter;
+	$VERSION = '0.14';
 
-@ISA = qw(Exporter);
-@EXPORT = qw(
-          FileBuffer
-          );
+	require 5.000;
 
-use LiveGeez::Local;
-use Convert::Ethiopic;
-require HTML::Entities;
+	@EXPORT = qw(FileBuffer);
+
+	use LiveGeez::Local;
+	use Convert::Ethiopic;
+	require HTML::Entities;
+}
+
+
+sub UpdateLink
+{
+my ( $baseDomain, $args ) = @_;
+
+
+	$args =~ s|href(\s*)=(\s*)"?([^"]+)"?|
+		$link = ( $3 =~ /^(\w+):/ ) ? $3 : "$baseDomain$3";
+		$link =~ s!/(\w+)/\.\./!/!g;
+		$href = "href=\"$link\"";
+		|xie;
+	"<link $args>";
+
+}
+
 
 
 sub UpdateHREF
@@ -21,10 +40,15 @@ my ( $sysOut, $baseDomain, $baseURL, $scriptRoot, $args ) = @_;
 my ( $link, $LGLink, $target );
 
 
-    $link   = $3 if ( $args =~ /href(\s*)=(\s*)"?([^"]+)"?/i );
-    $target = " target=\"$3\"" if ( $args =~ /target(\s*)=(\s*)"?(\w+)"?/i );
-    $LGLink = 1 if ( $args =~ /LIVEGEEZLINK/i );
+	#
+	#  return if this was a JavaScript or CSS link:
+	#
+	# return "<a $args>" if ( $args =~ /\.((cs)|(j))s/ );
+	return "<a $args>" if ( $args =~ /mailto:/i );
 
+	$link   = $3 if ( $args =~ /href(\s*)=(\s*)"?([^"]+)"?/i );
+	$target = " target=\"$3\"" if ( $args =~ /target(\s*)=(\s*)"?(\w+)"?/i );
+	$LGLink = 1 if ( $args =~ /LIVEGEEZLINK/i );
 
    	return ( $link =~ /^\// ) ? "<a href=\"$baseDomain$link\"$target>" : "<a $args>"
    		if ( ($link =~ /^(\w)+:/ || $link !~ "\.sera\.") && !$LGLink );
@@ -43,8 +67,9 @@ my ( $link, $LGLink, $target );
 		$link = "$baseDomain/$link";
 	}
 
-	$link =~ s#/(\w+)/\.\./#/#;  # stupid servers need this...
-	return "<a href=\"$scriptRoot?sys=$sysOut&file=$link\"$target>";
+	$link =~ s|/(\w+)/\.\./|/|g;  # stupid servers need this...
+	# $link =~ s|/\./|/|;          # stupid servers need this...
+	"<a href=\"$scriptRoot?sys=$sysOut&file=$link\"$target>";
 
 }
 
@@ -74,11 +99,12 @@ my ( $link, $LGLink, $target );
 
 sub FixLink
 {
-my ($link, $sysPragmaOut, $scriptRoot, $baseURL) = @_;
+my ( $link, $sysPragmaOut, $scriptRoot, $baseURL ) = @_;
 
 
-    $link = "$scriptRoot?sys=$sysPragmaOut&file=$baseURL$link";
-	$link =~ s#/(\w+)/\.\./#/#;  # stupid servers need this...
+	$link =~ s|/(\w+)/\.\./|/|;  # stupid servers need this...
+	$link =~ s|/\./|/|;          # stupid servers need this...
+	$link = "$scriptRoot?sys=$sysPragmaOut&file=$baseURL$link";
 	$link;
 }
 
@@ -134,6 +160,7 @@ my ( $menu, $name, $selected, $other );
       <option value=ET-NEBAR>ET-NEBAR</option>
       <option value=ET-Saba>ET-Saba</option>
       <option value=ET-SAMI>ET-SAMI</option>
+      <option value=Ethiopia-Jiret>Ethiopia Jiret Set I</option>
       <option value=Ethiopia>Ethiopia Primary</option>
       <option value=EthiopiaSlanted>Ethiopia Slanted Primary</option>
       <option value=EthiopiaAnsiP>EthiopiaAnsiP</option>
@@ -222,6 +249,7 @@ my ( $scriptRoot ) = ( $file->{baseURL} )
 	              ;
 
 	s/LIVEGEEZSYS/$sysOut/g;
+	s/<link(\s+)(href[^>]+)>/UpdateLink($file->{baseURL}, $2)/oeig;
 	s/<a(\s+)(href[^>]+)>/UpdateHREF($sysPragmaOut, $file->{baseDomain}, $file->{baseURL}, $scriptRoot, $2)/oeig;
 	s/<img([\s\w,="]+src[^>]+)>/UpdateSRC($file->{baseDomain}, $file->{baseURL}, $scriptRoot, $1)/oeig;
 	s/<frame([^>]+)src="?([^"]+)"?/"<frame$1src=\"".FixLink($2,$sysPragmaOut,$scriptRoot,$file->{baseURL})."\""/oeig;
@@ -248,6 +276,7 @@ my ( $scriptRoot ) = ( $file->{baseURL} )
 	s/<LIVEGEEZ(\s+)FORMMACFRIENDLY>/<nobr><input type="checkbox" name="pragma" value="7-bit"> Mac Friendly<\/nobr>/oig;
 	s/(value="7-bit")>/$1 checked>/ if ( $file->{request}->{sysOut}->{'7-bit'} );
 	s/<LIVEGEEZ([\s\w,="]+menu([^>]+)?)>/FontMenu($1, $sysOut, $file->{request}->{file})/imge;
+	s/(<head>(\s+)?)/$1<META HTTP-EQUIV="content-type" content="text-html; charset=utf-8">$2/i if ( $sysOut =~ "UTF8" );
 	
 
 
@@ -263,7 +292,8 @@ my ( $scriptRoot ) = ( $file->{baseURL} )
 	{
 		if ( $1 ) {
 			s/<(base)([^>]+)>/<$1$2 href="$file->{baseURL}">/i;
-		} else {
+		}
+		else {
 			s/(<body)/<base href="$file->{baseURL}">\n$1/i;
 		}
 	}

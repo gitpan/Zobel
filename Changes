@@ -1,5 +1,14 @@
 Revision history for Perl module LiveGeez
 
+0.14 Mon Nov 20 19:03:33 EST 2000
+	- Initial Office 2000 HTML Support.
+	- Smarter cacheing.
+	- Cgi module added.
+	- mod_perl support.
+	- 'date-only' coversion problem fixed.
+	- Ethiopia Jiret font added.
+	- bug fixes
+
 0.13 Sun Jan 30 20:42:46 EST 2000
 	- $VERSION addded to all pm files.
  	- New GeezFont typefaces added AddisB1, AddisL1, AddisT1

@@ -1,29 +1,37 @@
 package LiveGeez::Services;
+use base qw(Exporter);
 
-$VERSION = '0.10';
 
-require 5.000;
-require Exporter;
 
-@ISA = qw(Exporter);
-@EXPORT = qw(
-			ProcessRequest
-			ProcessDate
-			ProcessFortune
-			ProcessNumber
-			ProcessString
-			ProcessFile
-			AboutLiveGeez
-			);
+BEGIN
+{
+	use strict;
+	use vars qw($VERSION @EXPORT $fortuneDir);
 
-require LiveGeez::File;
-require Convert::Ethiopic;
-require Convert::Ethiopic::Time;
-require Convert::Ethiopic::Cstocs;
-require HTML::Entities;
+	$VERSION = '0.14';
 
-$fortuneDir       = "$Local::webRoot/fortunes/";
-($unicode, $utf8) = ( $Convert::Ethiopic::System::unicode,  $Convert::Ethiopic::System::utf8 );
+	require 5.000;
+
+	@EXPORT = qw(
+		ProcessRequest
+		ProcessDate
+		ProcessFortune
+		ProcessNumber
+		ProcessString
+		AboutLiveGeez
+	);
+		# ProcessFile  this no longer exists
+
+	require LiveGeez::File;
+	require Convert::Ethiopic;
+	require Convert::Ethiopic::Time;
+	require Convert::Ethiopic::Cstocs;
+	use Convert::Ethiopic::System qw($unicode $utf8);
+	require HTML::Entities;
+
+	$fortuneDir       = "$Local::webRoot/fortunes/";
+
+}
 
 
 #------------------------------------------------------------------------------#
@@ -35,7 +43,7 @@ $fortuneDir       = "$Local::webRoot/fortunes/";
 #	presently with any cgi "fortune" querry.  It has not been tested yet
 #	with inline <LIVEGEEZ game="fortune" src="database"> markups.
 #	
-#	"phrase" pragma is checked to return response as complete HTML document. 
+#	"phrase" pragma is checked to return response as complete HTML document.
 #
 #------------------------------------------------------------------------------#
 sub ProcessFortune
@@ -117,6 +125,8 @@ my $request = shift;
 		1       #  closing
 	);
 
+	return $eString if ( $request->{pragma} eq "plain-text" );
+
 	if ( $request->{sysOut}->{sysName} eq "sera" ) {
 		$eString =~ s/<</&#171;/g;
 		$eString =~ s/>>/&#187;/g;
@@ -125,10 +135,12 @@ my $request = shift;
 	$eString = HTML::Entities::encode($eString, "\200-\377")
 			   if ( $request->{sysOut}->{'7-bit'} );
 
-	$estring =~ s/\xa0/&nbsp;/g;  # wish HTML::Entities didn't do this..
+	$eString =~ s/\xa0/&nbsp;/g;  # wish HTML::Entities didn't do this..
 
 	$eString = $request->TopHtml ( "Your Ethiopic Phrase!" )
+			 . "<pre>\n"
 			 . "$eString\n"
+			 . "</pre>\n"
 			 . $request->BotHtml
 			   if ( $request->{phrase} );
 
@@ -151,9 +163,9 @@ sub AboutLiveGeez
 my $request = shift;
 
 
-	print $request->TopHtml ( "About LiveGe'ez &amp; LibEth" );
+	$request->print ( $request->TopHtml ( "About LiveGe'ez &amp; LibEth" ) );
 	my $leVersion = Convert::Ethiopic::LibEthVersion;
-	print <<ABOUT;
+	$request->print( <<ABOUT );
 <h1 align="center">About LiveGe'ez &amp; LibEth</h1>
 
 <p>This is the GFF implementation of the LiveGe'ez Remote Processing Protocal.  Ethiopic web service is performed through a collection of CGI scripts (Zobel v.0.12) written in Perl interfaced with the LibEth library (v. $leVersion).</p>
@@ -164,7 +176,8 @@ my $request = shift;
   <li> <a href="http://libeth.netpedia.net/LiveGeez.html">LiveGe'ez</a>
 </ul>
 ABOUT
-	print $request->BotHtml;
+
+	$request->print ( $request->BotHtml );
 	exit (0);
 
 }
@@ -174,7 +187,6 @@ sub ProcessDate
 {
 my $request = shift;
 my ( $day, $month, $year ) = split ( ",", $request->{date} );
-my ( $xDay, $xMonth, $xYear );
 my $returnDate;
 
 
@@ -196,14 +208,13 @@ my $returnDate;
 	}
 
 
-	($xDay, $xMonth, $xYear) = ( $request->{calIn} eq "ethio" )
-	                         ?  ( $date->{etDay}, $date->{etMonth}, $date->{etYear} )
-	                         :  ( $date->{euDay}, $date->{euMonth}, $date->{euYear} )
-	                         ;
-
-
 	if ( $request->{'date-only'} ) {
-		$returnDate = "$xDay,$xMonth,$xYear\n";
+		return
+		( $request->{calIn} eq "ethio" )
+		  ?  "$date->{euDay},$date->{euMonth},$date->{euYear}"
+		  :  "$date->{etDay},$date->{etMonth},$date->{etYear}"
+		;
+
 	}
 	elsif ( $request->{'is-holiday'} && $request->{phrase} ) {
 		$returnDate = $date->isEthiopianHoliday;
@@ -286,7 +297,8 @@ my $returnDate;
 					. " <i><font color=blue><u>is</u></font></i> "
 					. $etDate
 					. " <i>(<font color=red>$etDayName</font>)</i></h3>\n";
-		} else {
+		}
+		else {
 			#
 			# Convert from Ethiopian -> European
 			#
@@ -319,14 +331,17 @@ sub ProcessRequest
 my $r = shift;
 
 
-	$r->HeaderPrint;
-
 	if ( $r->{type} eq "file") {
 		# Only SERA supported at this time...
+		# $r->HeaderPrint;
 		my $f = LiveGeez::File->new ( $r );
 		$f->Display;
 	}
-	elsif ( $r->{type} eq "calendar" ) {
+	else {
+
+	$r->HeaderPrint;
+
+	if ( $r->{type} eq "calendar" ) {
 
 		# What time is it??
 		$r->DieCgi ( "Unsupported Calendar System: $r->{calIn}" )
@@ -334,19 +349,19 @@ my $r = shift;
 		$r->DieCgi ( "Unsupported Calendar System: $r->{calOut}" )
 			if ( $r->{calOut} && $r->{calOut} !~ /(ethio)|(euro)/ );
 		
-    	print ProcessDate ( $r );
+    		$r->print ( ProcessDate ( $r ) );
 	}
 	elsif ( $r->{type} eq "string" ) {
 		# Only SERA supported at this time...
-		print ProcessString ( $r );
+		$r->print ( ProcessString ( $r ) );
 	}
 	elsif ( $r->{type} eq "number" ) {
 		# We have a number request...
-		print ProcessNumber ( $r );
+		$r->print ( ProcessNumber ( $r ) );
 	}
 	elsif ( $r->{type} eq "game-fortune" ) {
 		# A random fortune from our vast library...
-		print ProcessFortune ( $r );
+		$r->print ( ProcessFortune ( $r ) );
 	}
 	elsif ( $r->{type} eq "about" ) {
 		#  For folks who want to know more... 
@@ -354,6 +369,7 @@ my $r = shift;
 	}
 	else {
 		return ( 0 );
+	}
 	}
 
 	1;

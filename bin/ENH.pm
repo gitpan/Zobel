@@ -34,8 +34,8 @@ my $file = shift;
 
 
 	#------------------ For Articles
-	s/<\/body>/"<\/body>".writeMailToUpdate($file)/ie
-		if ( $file->{request}->{isArticle} );
+	# s/<\/body>/"<\/body>".writeMailToUpdate($file)/ie
+	# 	if ( $file->{request}->{isArticle} );
 
 
 	#------------------ For NoFrames Main Page
@@ -67,9 +67,9 @@ my $string;
 
     $string = qq(<link rel=FONTDEF src="$fontURL">
     <!-- start Bitstream TDServer.ocx support -->
-    <SCRIPT LANGUAGE="JavaScript"
+    <script language="JavaScript"
         SRC="http://www.truedoc.com/activex/tdserver.js">
-    </SCRIPT>
+    </script>
     <!-- end Bitstream TDServer.ocx support -->
     <link>);
 
@@ -84,9 +84,9 @@ sub writeMenuHeader
 my $request = shift;
 my $string;
 my $sys     =  ( $request->{pragma} )
-	        ?   "$request->{sysOut}->{sysName}&pragma=$request->{pragma}"
-	        :    $request->{sysOut}->{sysName}
-	        ;
+            ?   "$request->{sysOut}->{sysName}&pragma=$request->{pragma}"
+            :    $request->{sysOut}->{sysName}
+            ;
 
 
 	$string = qq(<script language="JavaScript">
@@ -110,6 +110,71 @@ function openSpecials (file) {
 //------------------------------------------------------------------ -->
 </script>\n\n);
 
+$string .= qq(
+<SCRIPT LANGUAGE="JavaScript">
+<!-- Original:  Randy Bennett (rbennett\@thezone.net) -->
+<!-- Web Site:  http://home.thezone.net/~rbennett/utility/javahead.htm -->
+
+<!-- Begin
+function setupDescriptions() {
+var x = navigator.appVersion;
+y = x.substring(0,4);
+if (y>=4) setVariables();
+}
+var x,y,a,b;
+function setVariables(){
+if (navigator.appName == "Netscape") {
+h=".left=";
+v=".top=";
+dS="document.";
+sD="";
+}
+else
+{
+h=".pixelLeft=";
+v=".pixelTop=";
+dS="";
+sD=".style";
+   }
+}
+var isNav = (navigator.appName.indexOf("Netscape") !=-1);
+function popLayer(){
+desc = "<table cellpadding=3 border=1 bgcolor=F7F7F7><td>";
+
+desc += word;
+
+desc += "</td></table>";
+
+if(isNav) {
+document.object1.document.write(desc);
+document.object1.document.close();
+document.object1.left=x+25;
+document.object1.top=y;
+}
+else {
+object1.innerHTML=desc;
+eval(dS+"object1"+sD+h+(x+25));
+eval(dS+"object1"+sD+v+y);
+   }
+}
+function hideLayer(a){
+if(isNav) {
+eval(document.object1.top=a);
+}
+else object1.innerHTML="";
+}
+function handlerMM(e){
+x = (isNav) ? e.pageX : event.clientX;
+y = (isNav) ? e.pageY : event.clientY;
+}
+if (isNav){
+document.captureEvents(Event.MOUSEMOVE);
+}
+document.onmousemove = handlerMM;
+//  End -->
+</script>\n\n);
+
+	# $string .= writePFRHeader if ( $sys =~ "GFZemen2K" );
 
 	$string;
 }
@@ -124,7 +189,6 @@ my $mailToString = ( $file->{request}->{frames} eq "no" )
                  ?   "mailToURL"
                  :   "parent.mailToURL"
                  ;
-
 
 	$string = qq(\n<script language="JavaScript">
 <!--
@@ -153,25 +217,49 @@ my $r = shift;
 	$r->{euMonth} = $timeNow[4] + 1;
 	$r->{euYear}  = $timeNow[5] + 1900;
 
-	my $date = Convert::Ethiopic::Time->new ( $r );
+	my $date      = Convert::Ethiopic::Time->new ( $r );
 
 
 	$date->GregorianToEthiopic;
 
+	my $etDayName = Convert::Ethiopic::getEthiopicDayName ( $date->{etDay}, $date->{etMonth}, 512 ); 
+	$etDayName = "<font color=red>"
+	. Convert::Ethiopic::ConvertEthiopicString (
+						$etDayName,
+						$unicode,
+						$utf8,
+						$r->{sysOut}->{sysNum},
+						$r->{sysOut}->{xferNum},
+						$r->{sysOut}->{fontNum},
+						$r->{sysOut}->{langNum},
+						$r->{sysOut}->{iPath},
+						$r->{sysOut}->{options},
+						1       #  closing
+		)
+		. "</font>"
+	;
+	# $r->{string} = Convert::Ethiopic::getEthiopicDayName ( $date->{etDay}, $date->{etMonth}, 1024 ); 
+	# my $etDayName = "<font color=red>".ProcessString ( $r )."</font>";
+	$etDayName =~ s/"/\\"/g;
 
-	$string = "<table width=640 cellpadding=0 cellspacing=0>\n  <tr><td align=left width=33%>"
+	$string = "<script languages=\"JavaScript\">\nword = \"$etDayName\";\n</script>\n\n";
+
+	$string .= "<table width=640 cellpadding=0 cellspacing=0>\n  <tr><td align=left width=33%>"
 	        . $date->getEuroMonth
 	        . " $date->{euDay}, $date->{euYear}</td>\n"
 	        . "<td align=center width=34%><font color=teal size=+1><font color=teal><b>";
 
+	my $englishName  = Convert::Ethiopic::getEthiopicDayName ( $date->{etDay}, $date->{etMonth}, 0 );
 
-	$r->{string}           = "ye".$r->{sysOut}->HTMLName." dre geS";
+	$r->{string}           = "ye".$r->{sysOut}->HTMLName."  dre geS";
 	my $tempSysInNum       = $r->{sysIn}->{sysNum};
 	my $tempxferInNum      = $r->{sysIn}->{xferNum};
 	$r->{sysIn}->{sysNum}  = $sera;
 	$r->{sysIn}->{xferNum} = $notv;
 	$string               .= ProcessString ( $r )
-	                      . "</b></font></td><td align=right><a href=\"/ECalendars/ecalendars.cgi?sys=$r->{sysOut}->{sysName}\"><font color=\"black\">";
+	                      . "</b></font></td><td align=right><a href=\"/ECalendars/ecalendars.cgi?sys=$r->{sysOut}->{sysName}\" onMouseOver=\"popLayer(); status='$englishName';return true;\" onMouseOut=\"hideLayer(-50)\"><font color=\"black\">";
+	                      # . "</b></font></td><td align=right><a href=\"/ECalendars/ecalendars.cgi?sys=$r->{sysOut}->{sysName}\" onMouseOver=\"status='$englishName'\"><font color=\"black\">";
+	                      # . "</b></font></td><td align=right><a href=\"/ECalendars/ecalendars.cgi?sys=$r->{sysOut}->{sysName}\"><font color=\"black\">";
 	$r->{sysIn}->{sysNum}  = $tempSysInNum;
 	$r->{sysIn}->{xferNum} = $tempxferInNum;
 
@@ -203,12 +291,12 @@ my $r = shift;
 sub OpenFrameSet
 {
 my ( $request, $frame ) = ( shift, shift );
-my $frameRoot           = "misc/Frames";
-my $file                = $request->{file};
+my $frameRoot = "misc/Frames";
+my $file      = $request->{file};
+my $sysOut    = $request->{sysOut}->{sysName};
 my ( $fileSysOut, $sysPragmaOut );
 
 
-my	$sysOut       =   $request->{sysOut}->{sysName};
 	$sysOut      .= ".$request->{sysOut}->{xfer}"
 			 		  if ( $request->{sysOut}->{xfer} ne "notv" );
 	$sysPragmaOut = ( $request->{pragma} )
@@ -226,20 +314,28 @@ my	$sysOut       =   $request->{sysOut}->{sysName};
 	$fileSysOut  .= ".$request->{sysOut}->{lang}";
 
 
-	my $TOP 	  =  ( -e "$FileCacheDir/$frameRoot/addtop.$fileSysOut.html" ) 
-				  ?  "$FileCacheDir/$frameRoot/addtop.$fileSysOut.html"
-				  :  "$scriptBase?sys=$sysPragmaOut&file=$frameRoot/addtop.sera.html"
-				  ;
-	my $LEFT	  =  ( -e "$FileCacheDir/$frameRoot/left.$fileSysOut.html" ) 
-				  ?  "$FileCacheDir/$frameRoot/left.$fileSysOut.html"
-				  :  "$scriptBase?sys=$sysPragmaOut&file=$frameRoot/left.sera.html"
-				  ;
-	my $RIGHT	  =  ( -e "$FileCacheDir/$frameRoot/right.$fileSysOut.html" ) 
-				  ?  "$FileCacheDir/$frameRoot/right.$fileSysOut.html"
-				  :  "$scriptBase?sysPragmaOut=$fileSysOut&file=$frameRoot/right.sera.html"
-				  ;
+my $TOP 	  =  ( -e "$FileCacheDir/$frameRoot/addtop.$fileSysOut.html" ) 
+			  ?  "$FileCacheDir/$frameRoot/addtop.$fileSysOut.html"
+			  :  "$scriptBase?sys=$sysPragmaOut&file=$frameRoot/addtop.sera.html"
+			  ;
+my $LEFT	  =  ( -e "$FileCacheDir/$frameRoot/left.$fileSysOut.html" ) 
+			  ?  "$FileCacheDir/$frameRoot/left.$fileSysOut.html"
+			  :  "$scriptBase?sys=$sysPragmaOut&file=$frameRoot/left.sera.html"
+			  ;
+my $RIGHT  =  ( -e "$FileCacheDir/$frameRoot/right.$fileSysOut.html" ) 
+			  ?  "$FileCacheDir/$frameRoot/right.$fileSysOut.html"
+			  :  "$scriptBase?sysPragmaOut=$fileSysOut&file=$frameRoot/right.sera.html"
+			  ;
 
-	my $FILE 	  =  "$scriptBase?sys=$sysPragmaOut&file=$file&frames=skip";
+my $cacheFile = $file;
+$cacheFile  =~ s/sera/$fileSysOut/;
+$cacheFile .= ".gz";
+
+my $FILE	   =  ( -e "$FileCacheDir/$cacheFile" && $ENV{HTTP_ACCEPT_ENCODING} =~ "gzip" && $ENV{HTTP_USER_AGENT} !~ "MSIE" )
+            ? "$FileCacheDir/$cacheFile"
+            : "$scriptBase?sys=$sysPragmaOut&file=$file&frames=skip"
+            ;
+# my ( $FILE )   =  "$scriptBase?sys=$sysPragmaOut&file=$file&frames=skip";
 
 
 	open (FRAME, "$webRoot/$frame") || $r->DieCgi ( "!: Can't Open $frame\n" );
@@ -259,7 +355,9 @@ my	$sysOut       =   $request->{sysOut}->{sysName};
 sub ProcessFramesFile
 {
 my $r = shift;
-my $f = LiveGeez::File->new ( $r );
+
+
+	my $f = LiveGeez::File->new ( $r );
 
 
 	#
@@ -298,7 +396,10 @@ my $r = shift;
 my $articleFile = $r->{file};
 my $TEMPLATETOP = "misc/NoFrames/left.sera.html";
 my $TEMPLATEBOT = "misc/NoFrames/right.sera.html";
-my $f = LiveGeez::File->new ( $r );
+
+
+
+	my $f  = LiveGeez::File->new ( $r );
 
 
 	#=======================================================================
@@ -320,7 +421,7 @@ my $f = LiveGeez::File->new ( $r );
 		#
 
 		$r->{file}  = $TEMPLATETOP;
-		my $top     = LiveGeez::File->new ( $r );
+		my $top = LiveGeez::File->new ( $r );
 
 
 		#=======================================================================
@@ -329,11 +430,11 @@ my $f = LiveGeez::File->new ( $r );
 		#
 
 		$f->{Title}  = $1 if ( $f->{htmlData} =~ /<title>([^<]+)<\/title>/is );
-        $f->{htmlData} =~ s/<(\/)?html>//ogi;
-        $f->{htmlData} =~ s/<(\/)?head>//ogi;
-        $f->{htmlData} =~ s/<title>([^>]+)<\/title>//ois;
-        $f->{htmlData} =~ s/<(\/)?body([^>]+)?>//ogis;
-        # $f->{htmlData} =~ s/<\/body>//i;
+		$f->{htmlData} =~ s/<(\/)?html>//ogi;
+		$f->{htmlData} =~ s/<(\/)?head>//ogi;
+		$f->{htmlData} =~ s/<title>([^>]+)<\/title>//ois;
+		$f->{htmlData} =~ s/<(\/)?body([^>]+)?>//ogis;
+		# $f->{htmlData} =~ s/<\/body>//i;
 
 
 		#=======================================================================
@@ -350,9 +451,9 @@ my $f = LiveGeez::File->new ( $r );
 		# All together now...
 		#
 		$f->{htmlData} = $top->{htmlData} 
-					   . $f->{htmlData} 
-					   . $bot->{htmlData} 
-					   ;
+					      . $f->{htmlData} 
+					      . $bot->{htmlData} 
+					      ;
 
 		$r->{file} = $articleFile;
 
@@ -377,7 +478,7 @@ my $f = LiveGeez::File->new ( $r );
 
 
 }
-
+1;
 
 __END__
 

@@ -43,6 +43,10 @@ README file for the Zobel LiveGe'ez RPP Implementation.
 		document.  The constructor requires a LiveGeez::Request object
 		as an argument.
 
+	Module LiveGeez::Cgi
+
+		Instantiates an object for processing an Ethiopic text or HTML
+
 	Program LiveGeez::HTML
 
 		Provides the routines for conversion of HTML document content
@@ -86,7 +90,7 @@ Installation:
 	(vs /usr/local/bin etc.)
 
 Available:
-	ftp://ftp.abyssiniacybergateway.net/pub/users/abyssini/perl-unicode/ and from your
+	ftp://ftp.ethiopic.org/pub/perl-unicode/ and from your
 	favorite CPAN site in the authors/id/D/DY/DYACOB/ directory.
 	
 Copyright: (c) 1999 Daniel Yacob, Yacob@EthiopiaOnline.Net. All rights

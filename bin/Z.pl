@@ -1,7 +1,8 @@
-#!/usr/bin/perl
+#!/usr/bin/perl -I.
 
+use strict;
 use LiveGeez::Local;
-use LiveGeez::Request;
+require LiveGeez::Request;
 use LiveGeez::Services;
 
 
@@ -11,13 +12,13 @@ SetCookie
 my $r = shift;
 
 	print $r->SetCookie ( $r->{sysOut}->{sysName}, $r->{frames}, 
-						  $r->{sysOut}->{'7-bit'} );
+	                      $r->{sysOut}->{'7-bit'} );
 }
 
 
 main:
 {
-my $r = LiveGeez::Request->new;
+my $r = new LiveGeez::Request;
 
 
 	SetCookie ( $r ) if ( $r->{setCookie} eq "true" );
